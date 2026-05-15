@@ -19,6 +19,8 @@ The `main` branch was created as a full 0.3.16.0 source snapshot from
 `/Users/brick/comma-dev/sunnypilot-src` staging commit
 `5936f534bd67d2f5860387e4bbaa519eed97a849`.
 
-The `staging` branch is the cleaned Brickpilot-core branch. It intentionally
-does not carry the old web UI, OpenClaw plugin, drive-test/manual-labeler/ML
-scripts, or general desktop analysis tools.
+The `staging` branch is the cleaned Brickpilot-core branch. It keeps native
+sunnypilot/openpilot source, runtime support, and developer tooling. It
+intentionally does not carry Brickpilot-specific off-device operations that now
+live in sibling repositories: the old web UI, OpenClaw logdrive plugin, and
+Brickpilot drive-test/manual-labeler/ML database scripts.
