@@ -87,6 +87,7 @@ build/
 # agents
 .claude/
 .context/
+BRICKPILOT_PROJECT_ARCHITECTURE.md
 PLAN.md
 TASK.md
 CLAUDE.md
