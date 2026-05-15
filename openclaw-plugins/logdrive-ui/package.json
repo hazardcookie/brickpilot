@@ -1,0 +1,14 @@
+{
+  "name": "openclaw-logdrive-ui",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "openclaw": {
+    "extensions": ["./index.js"],
+    "runtimeExtensions": ["./index.js"],
+    "compat": {
+      "pluginApi": ">=2026.4.29",
+      "minGatewayVersion": "2026.4.29"
+    }
+  }
+}
