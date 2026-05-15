@@ -136,5 +136,6 @@ class MiciMainLayout(Scroller):
     self._pm.send('bookmarkButton', user_bookmark)
     return user_bookmark.logMonoTime
 
-  def _on_bookmark_tag_selected(self, reason: str, bookmark_log_mono_time: int | None) -> None:
-    append_bookmark_tag(reason, bookmark_log_mono_time)
+  def _on_bookmark_tag_selected(self, reason: str, bookmark_log_mono_time: int | None,
+                                tags: tuple[str, ...] | None = None) -> None:
+    append_bookmark_tag(reason, bookmark_log_mono_time, tags=tags)

@@ -110,8 +110,9 @@ class MainLayout(Widget):
       onroad_layout.show_bookmark_tag_prompt(user_bookmark.logMonoTime)
     return user_bookmark.logMonoTime
 
-  def _on_bookmark_tag_selected(self, reason: str, bookmark_log_mono_time: int | None) -> None:
-    append_bookmark_tag(reason, bookmark_log_mono_time)
+  def _on_bookmark_tag_selected(self, reason: str, bookmark_log_mono_time: int | None,
+                                tags: tuple[str, ...] | None = None) -> None:
+    append_bookmark_tag(reason, bookmark_log_mono_time, tags=tags)
 
   def _on_onroad_clicked(self):
     self._sidebar.set_visible(not self._sidebar.is_visible)

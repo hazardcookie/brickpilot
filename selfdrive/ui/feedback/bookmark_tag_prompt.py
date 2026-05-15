@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import math
 
 import pyray as rl
 
@@ -77,14 +78,28 @@ class BookmarkTagPrompt(Widget):
   LIGHT_TEXT_COLOR = rl.WHITE
   DARK_TEXT_COLOR = rl.Color(20, 20, 20, 255)
 
-  TAGS = (
-    ("Accel", "acceleration", "Accel label saved", ACCEL_COLOR, ACCEL_PRESSED_COLOR, LIGHT_TEXT_COLOR),
-    ("Brake", "braking", "Brake label saved", BRAKE_COLOR, BRAKE_PRESSED_COLOR, LIGHT_TEXT_COLOR),
-    ("Steer", "steering", "Steer label saved", STEER_COLOR, STEER_PRESSED_COLOR, DARK_TEXT_COLOR),
-    ("PHEV", "phev_context", "PHEV context saved", PHEV_COLOR, PHEV_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+  GOOD_COLOR = rl.Color(142, 212, 98, 255)
+  GOOD_PRESSED_COLOR = rl.Color(101, 170, 64, 255)
+
+  TAGS: tuple[tuple[str, str | None, str, tuple[str, ...] | None, rl.Color, rl.Color, rl.Color], ...] = (
+    ("Accel", "acceleration", "Accel label saved", None, ACCEL_COLOR, ACCEL_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Brake", "braking", "Brake label saved", None, BRAKE_COLOR, BRAKE_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Steer", "steering", "Steer label saved", None, STEER_COLOR, STEER_PRESSED_COLOR, DARK_TEXT_COLOR),
+    ("PHEV", None, "", None, PHEV_COLOR, PHEV_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Good", "good", "Good label saved", ("good_normal",), GOOD_COLOR, GOOD_PRESSED_COLOR, DARK_TEXT_COLOR),
+  )
+  PHEV_TAGS: tuple[tuple[str, str, tuple[str, ...], rl.Color, rl.Color, rl.Color], ...] = (
+    ("EV Lag", "EV lag saved", ("ev_launch_lag",), PHEV_COLOR, PHEV_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Engine", "Engine transition saved", ("engine_transition",), PHEV_COLOR, PHEV_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("HEV", "HEV transition saved", ("hev_transition",), PHEV_COLOR, PHEV_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Regen", "Regen blend saved", ("regen_blend",), PHEV_COLOR, PHEV_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Blend", "Brake blend saved", ("brake_blend",), BRAKE_COLOR, BRAKE_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Creep", "Stop creep saved", ("stop_creep",), BRAKE_COLOR, BRAKE_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Lazy", "PHEV lazy saved", ("no_lead_lazy",), ACCEL_COLOR, ACCEL_PRESSED_COLOR, LIGHT_TEXT_COLOR),
+    ("Good", "Good PHEV saved", ("good_phev_transition",), GOOD_COLOR, GOOD_PRESSED_COLOR, DARK_TEXT_COLOR),
   )
 
-  def __init__(self, tag_callback: Callable[[str, int | None], None] | None):
+  def __init__(self, tag_callback: Callable[[str, int | None, tuple[str, ...] | None], None] | None):
     super().__init__()
     self._tag_callback = tag_callback
     self._bookmark_log_mono_time: int | None = None
@@ -96,23 +111,38 @@ class BookmarkTagPrompt(Widget):
     self._interacting = False
     self._button_group_rect = rl.Rectangle(0, 0, 0, 0)
     self._confirmation_rect = rl.Rectangle(0, 0, 0, 0)
-    self._buttons = []
-    for label, reason, confirmation_text, color, pressed_color, text_color in self.TAGS:
+    self._primary_buttons = []
+    for label, reason, confirmation_text, tags, color, pressed_color, text_color in self.TAGS:
       button = self._child(
         BookmarkTagButton(
           label,
           color,
           pressed_color,
           text_color,
-          click_callback=lambda r=reason, c=confirmation_text, bg=color, fg=text_color: self._select_reason(r, c, bg, fg),
+          click_callback=(lambda: self._show_phev_choices()) if reason is None else
+          (lambda r=reason, c=confirmation_text, t=tags, bg=color, fg=text_color: self._select_reason(r, c, bg, fg, t)),
         )
       )
-      self._buttons.append(button)
+      self._primary_buttons.append(button)
+    self._phev_buttons = []
+    for label, confirmation_text, tags, color, pressed_color, text_color in self.PHEV_TAGS:
+      button = self._child(
+        BookmarkTagButton(
+          label,
+          color,
+          pressed_color,
+          text_color,
+          click_callback=lambda c=confirmation_text, t=tags, bg=color, fg=text_color: self._select_reason("phev_context", c, bg, fg, t),
+        )
+      )
+      self._phev_buttons.append(button)
+    self._buttons = self._primary_buttons
 
   def show(self, bookmark_log_mono_time: int | None) -> None:
     self._bookmark_log_mono_time = bookmark_log_mono_time
     self._confirmation_until = 0.0
     self._confirmation_text = ""
+    self._buttons = self._primary_buttons
     self._visible_until = rl.get_time() + self.SHOW_SECONDS
 
   def showing_buttons(self) -> bool:
@@ -131,10 +161,16 @@ class BookmarkTagPrompt(Widget):
     interacting, self._interacting = self._interacting, False
     return interacting
 
-  def _select_reason(self, reason: str, confirmation_text: str, color: rl.Color, text_color: rl.Color) -> None:
+  def _show_phev_choices(self) -> None:
+    self._interacting = True
+    self._buttons = self._phev_buttons
+    self._visible_until = rl.get_time() + self.SHOW_SECONDS
+
+  def _select_reason(self, reason: str, confirmation_text: str, color: rl.Color,
+                     text_color: rl.Color, tags: tuple[str, ...] | None = None) -> None:
     self._interacting = True
     if self._tag_callback:
-      self._tag_callback(reason, self._bookmark_log_mono_time)
+      self._tag_callback(reason, self._bookmark_log_mono_time, tags)
     self._visible_until = 0.0
     self._confirmation_text = confirmation_text
     self._confirmation_color = color
@@ -155,23 +191,30 @@ class BookmarkTagPrompt(Widget):
       self._confirmation_rect = rl.Rectangle(0, 0, 0, 0)
       return
 
+    columns = min(button_count, 5) if button_count <= 5 else 4
+    rows = max(1, math.ceil(button_count / columns))
     available_width = max(0.0, self.rect.width - 2 * self.EDGE_MARGIN)
-    gap = min(self.BUTTON_GAP, max(self.BUTTON_MIN_GAP, (available_width - button_count * self.BUTTON_MIN_SIZE) / (button_count - 1)))
-    button_size = min(self.BUTTON_SIZE, max(0.0, (available_width - (button_count - 1) * gap) / button_count))
+    gap = min(self.BUTTON_GAP, max(self.BUTTON_MIN_GAP, (available_width - columns * self.BUTTON_MIN_SIZE) / max(columns - 1, 1)))
+    button_size = min(self.BUTTON_SIZE, max(0.0, (available_width - (columns - 1) * gap) / columns))
+    row_gap = min(48, max(20, gap * 0.5))
 
-    total_buttons_width = button_count * button_size + (button_count - 1) * gap
+    total_buttons_width = columns * button_size + (columns - 1) * gap
+    total_buttons_height = rows * button_size + (rows - 1) * row_gap
     button_x = self.rect.x + (self.rect.width - total_buttons_width) / 2
-    button_y = self.rect.y + self.rect.height - button_size - self.BOTTOM_MARGIN
-    self._button_group_rect = rl.Rectangle(button_x, button_y, total_buttons_width, button_size)
+    button_y = self.rect.y + self.rect.height - total_buttons_height - self.BOTTOM_MARGIN
+    self._button_group_rect = rl.Rectangle(button_x, button_y, total_buttons_width, total_buttons_height)
 
     confirmation_width = max(0.0, self.rect.width - 2 * self.CONFIRMATION_EDGE_MARGIN)
     confirmation_x = self.rect.x + (self.rect.width - confirmation_width) / 2
     confirmation_y = self.rect.y + self.rect.height - self.CONFIRMATION_HEIGHT - self.BOTTOM_MARGIN
     self._confirmation_rect = rl.Rectangle(confirmation_x, confirmation_y, confirmation_width, self.CONFIRMATION_HEIGHT)
 
-    for button in self._buttons:
-      button.set_rect(rl.Rectangle(button_x, button_y, button_size, button_size))
-      button_x += button_size + gap
+    for i, button in enumerate(self._buttons):
+      col = i % columns
+      row = i // columns
+      button.set_rect(rl.Rectangle(button_x + col * (button_size + gap),
+                                   button_y + row * (button_size + row_gap),
+                                   button_size, button_size))
 
   def _handle_mouse_event(self, mouse_event: MouseEvent) -> None:
     if self._showing_buttons() and rl.check_collision_point_rec(mouse_event.pos, self._button_group_rect):

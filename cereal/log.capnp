@@ -889,6 +889,37 @@ struct ControlsState @0x97ff69c53601abf1 {
     longActive @18 :Bool;
     latActive @19 :Bool;
     stopping @20 :Bool;
+    longitudinalAssistVehicleEnabled @21 :Bool;
+    longitudinalAssistParamEnabled @22 :Bool;
+    longitudinalAssistActive @23 :Bool;
+    longitudinalAssistShadowCandidate @24 :Bool;
+    longitudinalAssistSuppressors @25 :UInt32;  # BrickpilotLongitudinalSuppressor bitmask
+    longitudinalAssistVersionCode @26 :UInt32;  # e.g. 32500 for 0.3.25.0
+    longitudinalAssistCandidateHash @27 :UInt32;
+    longitudinalAssistATarget @28 :Float32;
+    longitudinalAssistAssistedATarget @29 :Float32;
+    longitudinalAssistDelta @30 :Float32;
+    longitudinalAssistHoldTimer @31 :Float32;
+    longitudinalAssistHoldTarget @32 :Float32;
+    longitudinalAssistHeldActivation @33 :Bool;
+    longitudinalPlannerFloorShadowCandidate @34 :Bool;
+    longitudinalAccelLag @35 :Float32;
+    longitudinalLateralDemand @36 :Float32;
+    longitudinalLeadClosing @37 :Bool;
+    longitudinalPlanSource @38 :UInt8;  # log.LongitudinalPlan.LongitudinalPlanSource raw value
+    longitudinalAllowThrottle @39 :Bool;
+    steeringGuardTucsonCanfdScope @40 :Bool;
+    steeringGuardHighAngleLatched @41 :Bool;
+    steeringGuardFaultCooldownActive @42 :Bool;
+    steeringGuardTemporaryFault @43 :Bool;
+    steeringGuardSuppressed @44 :Bool;
+    steeringGuardImmediateSuppression @45 :Bool;  # true when Brickpilot latch suppresses before upstream frame gate
+    steeringGuardTorqueZeroed @46 :Bool;
+    steeringGuardFaultCooldownFrames @47 :UInt16;
+    steeringGuardAboveLimitFrames @48 :UInt16;
+    steeringGuardAngleDeg @49 :Float32;
+    steeringGuardRecoveryAngleDeg @50 :Float32;
+    steeringGuardUpstreamWouldSuppress @51 :Bool;
   }
 
   deprecated :group {

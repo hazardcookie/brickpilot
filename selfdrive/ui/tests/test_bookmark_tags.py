@@ -18,8 +18,9 @@ class TestBookmarkTags(unittest.TestCase):
       records = [json.loads(line) for line in out.read_text().splitlines()]
       self.assertEqual(len(records), 1)
       record = records[0]
-      self.assertEqual(record["schema_version"], 1)
+      self.assertEqual(record["schema_version"], 2)
       self.assertEqual(record["reason"], "braking")
+      self.assertEqual(record["label_kind"], "drive")
       self.assertEqual(record["source"], "bookmarkButton")
       self.assertEqual(record["bookmark_button_log_mono_time"], 123456789)
       self.assertEqual(record["route"], "route-id")
@@ -36,7 +37,7 @@ class TestBookmarkTags(unittest.TestCase):
           bookmark_tags.build_bookmark_tag_record("lane_change")
       self.assertFalse(out.exists())
 
-  def test_phev_context_bookmark_includes_taxonomy_tags(self):
+  def test_phev_context_bookmark_requires_specific_or_unspecified_tag(self):
     with tempfile.TemporaryDirectory() as td:
       out = Path(td) / "bookmark_tags.jsonl"
       with patch.dict("os.environ", {bookmark_tags.BOOKMARK_TAGS_PATH_ENV: str(out)}), \
@@ -45,7 +46,32 @@ class TestBookmarkTags(unittest.TestCase):
 
       record = json.loads(out.read_text().splitlines()[0])
       self.assertEqual(record["reason"], "phev_context")
-      self.assertEqual(record["tags"], list(bookmark_tags.PHEV_CONTEXT_TAGS))
+      self.assertEqual(record["label_kind"], "phev")
+      self.assertEqual(record["tags"], ["phev_unspecified"])
+
+  def test_phev_context_bookmark_preserves_specific_tag(self):
+    with tempfile.TemporaryDirectory() as td:
+      out = Path(td) / "bookmark_tags.jsonl"
+      with patch.dict("os.environ", {bookmark_tags.BOOKMARK_TAGS_PATH_ENV: str(out)}), \
+           patch.object(bookmark_tags, "current_route_and_segment", return_value=("route-id", 3, "route-id--3")):
+        self.assertTrue(bookmark_tags.append_bookmark_tag("phev_context", 987654321, tags=("engine_transition",)))
+
+      record = json.loads(out.read_text().splitlines()[0])
+      self.assertEqual(record["reason"], "phev_context")
+      self.assertEqual(record["label_kind"], "phev")
+      self.assertEqual(record["tags"], ["engine_transition"])
+
+  def test_good_bookmark_gets_good_normal_tag(self):
+    with tempfile.TemporaryDirectory() as td:
+      out = Path(td) / "bookmark_tags.jsonl"
+      with patch.dict("os.environ", {bookmark_tags.BOOKMARK_TAGS_PATH_ENV: str(out)}), \
+           patch.object(bookmark_tags, "current_route_and_segment", return_value=("route-id", 4, "route-id--4")):
+        self.assertTrue(bookmark_tags.append_bookmark_tag("good", 111))
+
+      record = json.loads(out.read_text().splitlines()[0])
+      self.assertEqual(record["reason"], "good")
+      self.assertEqual(record["label_kind"], "drive")
+      self.assertEqual(record["tags"], ["good_normal"])
 
   def test_current_route_and_segment_finds_latest(self):
     with tempfile.TemporaryDirectory() as td:

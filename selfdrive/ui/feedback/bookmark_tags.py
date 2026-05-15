@@ -23,9 +23,22 @@ class _PathsProxy:
 
 Paths = _PathsProxy
 
-PHEV_CONTEXT_TAGS = ("ev", "hev", "engine", "regen", "stop_creep", "too_lazy", "too_eager", "mads_lfa", "steering_jerk")
-VALID_BOOKMARK_REASONS = ("acceleration", "braking", "steering", "phev_context")
-BOOKMARK_TAG_SCHEMA_VERSION = 1
+PHEV_CONTEXT_TAGS = (
+  "ev_launch_lag",
+  "engine_transition",
+  "hev_transition",
+  "regen_blend",
+  "brake_blend",
+  "stop_creep",
+  "no_lead_lazy",
+  "lead_resume_lazy",
+  "too_eager_surge",
+  "good_phev_transition",
+  "phev_unspecified",
+)
+GOOD_CONTEXT_TAGS = ("good_normal",)
+VALID_BOOKMARK_REASONS = ("acceleration", "braking", "steering", "phev_context", "good")
+BOOKMARK_TAG_SCHEMA_VERSION = 2
 BOOKMARK_TAGS_PATH_ENV = "BRICKPILOT_BOOKMARK_TAGS_PATH"
 
 
@@ -111,6 +124,7 @@ def build_bookmark_tag_record(reason: str,
     "bookmark_button_log_mono_time": bookmark_log_mono_time,
     "source": source,
     "reason": reason,
+    "label_kind": "phev" if reason == "phev_context" else "drive",
     "route": route,
     "segment": segment,
     "segment_name": segment_name,
@@ -127,7 +141,9 @@ def append_bookmark_tag(reason: str,
   """Append one JSONL bookmark tag record. Returns False on write failure."""
   try:
     if reason == "phev_context" and tags is None:
-      tags = PHEV_CONTEXT_TAGS
+      tags = ("phev_unspecified",)
+    elif reason == "good" and tags is None:
+      tags = GOOD_CONTEXT_TAGS
     record = build_bookmark_tag_record(reason, bookmark_log_mono_time, source, tags)
     line = json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
     path = bookmark_tags_path()

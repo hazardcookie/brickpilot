@@ -11,8 +11,14 @@ from openpilot.common.swaglog import cloudlog
 
 from opendbc.car.car_helpers import interfaces
 from opendbc.car.vehicle_model import VehicleModel
+from opendbc.car.hyundai.values import CAR, HyundaiFlags
 from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature
-from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import BrickpilotLongitudinalAssistState, brickpilot_tucson_longitudinal_assist
+from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
+  BRICKPILOT_LONGITUDINAL_VERSION_CODE,
+  ULTIMATE_100K_CANDIDATE_HASH,
+  BrickpilotLongitudinalAssistState,
+  brickpilot_tucson_longitudinal_assist,
+)
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
 from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, STEER_ANGLE_SATURATION_THRESHOLD
@@ -28,6 +34,10 @@ LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
 
 ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
+BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG = 85.0
+BRICKPILOT_TUCSON_CANFD_GUARD_RECOVERY_ANGLE_DEG = 80.0
+BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_FRAMES = 89
+BRICKPILOT_TUCSON_CANFD_GUARD_FAULT_COOLDOWN_FRAMES = 100
 
 
 class Controls(ControlsExt):
@@ -45,7 +55,7 @@ class Controls(ControlsExt):
     self.sm = messaging.SubMaster(['liveDelay', 'liveParameters', 'liveTorqueParameters', 'modelV2', 'selfdriveState',
                                    'liveCalibration', 'livePose', 'longitudinalPlan', 'longitudinalPlanSP', 'lateralManeuverPlan',
                                    'carState', 'carOutput', 'driverMonitoringState', 'onroadEvents', 'driverAssistance',
-                                   'liveDelay'] + self.sm_services_ext,
+                                   ] + self.sm_services_ext,
                                   poll='selfdriveState')
     self.pm = messaging.PubMaster(['carControl', 'controlsState'] + self.pm_services_ext)
 
@@ -53,7 +63,11 @@ class Controls(ControlsExt):
     self.curvature = 0.0
     self.desired_curvature = 0.0
     self.brickpilot_shadow_torque_cmd_last = 0.0
+    self.brickpilot_assist_enabled = False
     self.brickpilot_longitudinal_assist = BrickpilotLongitudinalAssistState()
+    self.brickpilot_tucson_guard_angle_limited = False
+    self.brickpilot_tucson_guard_fault_cooldown_frames = 0
+    self.brickpilot_tucson_guard_above_limit_frames = 0
 
     self.pose_calibrator = PoseCalibrator()
     self.calibrated_pose: Pose | None = None
@@ -149,6 +163,7 @@ class Controls(ControlsExt):
       # have not regenerated for the test key yet, so installed builds are
       # actually testable. Safety suppressors still gate activation.
       brickpilot_assist_enabled = True
+    self.brickpilot_assist_enabled = bool(brickpilot_assist_enabled)
     long_a_target = self.brickpilot_longitudinal_assist.assisted_a_target if brickpilot_assist_enabled else long_plan.aTarget
     actuators.accel = float(self.LoC.update(CC.longActive, CS, long_a_target, long_plan.shouldStop, pid_accel_limits))
 
@@ -178,6 +193,64 @@ class Controls(ControlsExt):
         setattr(actuators, p, 0.0)
 
     return CC, lac_log
+
+  @staticmethod
+  def _enum_raw(value) -> int:
+    raw = getattr(value, "raw", None)
+    if raw is not None:
+      value = raw
+    try:
+      return int(value)
+    except (TypeError, ValueError):
+      return 0
+
+  def _update_brickpilot_steering_guard_shadow(self, CC, CS) -> dict[str, bool | float | int]:
+    mads = getattr(self.sm['selfdriveStateSP'], "mads", None)
+    tucson_canfd_scope = bool(self.CP.flags & HyundaiFlags.CANFD and
+                              self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN and
+                              getattr(mads, "available", False))
+    guard_active = bool(tucson_canfd_scope and CC.latActive)
+    angle_abs = abs(float(CS.steeringAngleDeg))
+    temporary_fault = bool(CS.steerFaultTemporary)
+
+    if guard_active and angle_abs >= BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG:
+      self.brickpilot_tucson_guard_above_limit_frames += 1
+    else:
+      self.brickpilot_tucson_guard_above_limit_frames = 0
+    upstream_would_suppress = bool(guard_active and
+                                   self.brickpilot_tucson_guard_above_limit_frames > BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_FRAMES)
+
+    suppress_for_fault_cooldown = False
+    if guard_active:
+      suppress_for_fault_cooldown = temporary_fault
+      if temporary_fault:
+        self.brickpilot_tucson_guard_fault_cooldown_frames = BRICKPILOT_TUCSON_CANFD_GUARD_FAULT_COOLDOWN_FRAMES
+      elif self.brickpilot_tucson_guard_fault_cooldown_frames > 0:
+        suppress_for_fault_cooldown = True
+        self.brickpilot_tucson_guard_fault_cooldown_frames -= 1
+
+      if angle_abs >= BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG:
+        self.brickpilot_tucson_guard_angle_limited = True
+      elif angle_abs <= BRICKPILOT_TUCSON_CANFD_GUARD_RECOVERY_ANGLE_DEG:
+        self.brickpilot_tucson_guard_angle_limited = False
+    else:
+      suppress_for_fault_cooldown = bool(self.brickpilot_tucson_guard_fault_cooldown_frames > 0)
+
+    suppressed = bool(guard_active and (self.brickpilot_tucson_guard_angle_limited or suppress_for_fault_cooldown))
+    return {
+      "scope": tucson_canfd_scope,
+      "angle_latched": bool(self.brickpilot_tucson_guard_angle_limited),
+      "fault_cooldown_active": bool(suppress_for_fault_cooldown),
+      "temporary_fault": temporary_fault,
+      "suppressed": suppressed,
+      "immediate_suppression": bool(suppressed and not upstream_would_suppress),
+      "torque_zeroed": bool(suppressed),
+      "fault_cooldown_frames": int(max(0, self.brickpilot_tucson_guard_fault_cooldown_frames)),
+      "above_limit_frames": int(max(0, self.brickpilot_tucson_guard_above_limit_frames)),
+      "angle_deg": float(CS.steeringAngleDeg),
+      "recovery_angle_deg": BRICKPILOT_TUCSON_CANFD_GUARD_RECOVERY_ANGLE_DEG,
+      "upstream_would_suppress": upstream_would_suppress,
+    }
 
   def publish(self, CC, lac_log):
     CS = self.sm['carState']
@@ -266,6 +339,38 @@ class Controls(ControlsExt):
     bp.stopping = bool(CC.actuators.longControlState == car.CarControl.Actuators.LongControlState.stopping)
     bp.lazyCandidate = bool(self.brickpilot_longitudinal_assist.planner_floor_shadow_candidate or
                             (bp.longActive and bp.nearStandstill and bp.hasLead and not CS.gasPressed and not CS.brakePressed))
+    bp.longitudinalAssistVehicleEnabled = bool(self.brickpilot_longitudinal_assist.enabled_for_vehicle)
+    bp.longitudinalAssistParamEnabled = bool(self.brickpilot_assist_enabled)
+    bp.longitudinalAssistActive = bool(self.brickpilot_longitudinal_assist.active)
+    bp.longitudinalAssistShadowCandidate = bool(self.brickpilot_longitudinal_assist.shadow_candidate)
+    bp.longitudinalAssistSuppressors = int(self.brickpilot_longitudinal_assist.suppressors)
+    bp.longitudinalAssistVersionCode = BRICKPILOT_LONGITUDINAL_VERSION_CODE
+    bp.longitudinalAssistCandidateHash = ULTIMATE_100K_CANDIDATE_HASH
+    bp.longitudinalAssistATarget = float(self.brickpilot_longitudinal_assist.a_target)
+    bp.longitudinalAssistAssistedATarget = float(self.brickpilot_longitudinal_assist.assisted_a_target)
+    bp.longitudinalAssistDelta = float(self.brickpilot_longitudinal_assist.assist_delta)
+    bp.longitudinalAssistHoldTimer = float(self.brickpilot_longitudinal_assist.hold_timer)
+    bp.longitudinalAssistHoldTarget = float(self.brickpilot_longitudinal_assist.hold_target)
+    bp.longitudinalAssistHeldActivation = bool(self.brickpilot_longitudinal_assist.held_activation)
+    bp.longitudinalPlannerFloorShadowCandidate = bool(self.brickpilot_longitudinal_assist.planner_floor_shadow_candidate)
+    bp.longitudinalAccelLag = float(self.brickpilot_longitudinal_assist.accel_lag)
+    bp.longitudinalLateralDemand = float(self.brickpilot_longitudinal_assist.lateral_demand)
+    bp.longitudinalLeadClosing = bool(self.brickpilot_longitudinal_assist.lead_closing)
+    bp.longitudinalPlanSource = self._enum_raw(getattr(long_plan, "longitudinalPlanSource", 0))
+    bp.longitudinalAllowThrottle = bool(getattr(long_plan, "allowThrottle", True))
+    steering_guard = self._update_brickpilot_steering_guard_shadow(CC, CS)
+    bp.steeringGuardTucsonCanfdScope = bool(steering_guard["scope"])
+    bp.steeringGuardHighAngleLatched = bool(steering_guard["angle_latched"])
+    bp.steeringGuardFaultCooldownActive = bool(steering_guard["fault_cooldown_active"])
+    bp.steeringGuardTemporaryFault = bool(steering_guard["temporary_fault"])
+    bp.steeringGuardSuppressed = bool(steering_guard["suppressed"])
+    bp.steeringGuardImmediateSuppression = bool(steering_guard["immediate_suppression"])
+    bp.steeringGuardTorqueZeroed = bool(steering_guard["torque_zeroed"])
+    bp.steeringGuardFaultCooldownFrames = int(steering_guard["fault_cooldown_frames"])
+    bp.steeringGuardAboveLimitFrames = int(steering_guard["above_limit_frames"])
+    bp.steeringGuardAngleDeg = float(steering_guard["angle_deg"])
+    bp.steeringGuardRecoveryAngleDeg = float(steering_guard["recovery_angle_deg"])
+    bp.steeringGuardUpstreamWouldSuppress = bool(steering_guard["upstream_would_suppress"])
     self.brickpilot_shadow_torque_cmd_last = float(CC.actuators.torque)
 
     if self.CP.steerControlType == car.CarParams.SteerControlType.angle:

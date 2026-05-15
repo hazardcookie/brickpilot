@@ -52,14 +52,16 @@ class BrickpilotLongitudinalAssistState:
   lead_closing: bool = False
 
 
-# Brickpilot 0.3.9.7 is a unification build carrying the deployable/safety-clean 0.3.9.6 100k ultimate
-# frontier winner while keeping the original live hard veto posture: Tucson
+# Brickpilot 0.3.25.0 carries the deployable/safety-clean 0.3.9.7 100k ultimate
+# frontier winner plus pre-0.4.0 shadow telemetry while keeping the original live hard veto posture: Tucson
 # CAN-FD scope only, cruise-source/no-lead/stop/driver/DEC/curve safety gates,
 # no planner floor creation, and no hold through planner-safety vetoes.  The new
 # live behavior is the durable plateau signal from replay: after a clean
 # activation, persist briefly through non-safety planner/target gaps only.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.3.9.7"
+BRICKPILOT_LONGITUDINAL_VERSION = "0.3.25.0"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 32500
 ULTIMATE_100K_CANDIDATE_ID = "ultimate_micro_frontier_174_final0008_j19_h1.769_dc0.475_md0.649"
+ULTIMATE_100K_CANDIDATE_HASH = 3748461780
 MIN_POSITIVE_PLANNER_ACCEL = 0.35
 MIN_ACCEL_LAG = 0.35
 MIN_ASSIST_SPEED = 7.0 * CV.MPH_TO_MS

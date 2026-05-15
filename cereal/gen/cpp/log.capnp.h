@@ -8,7 +8,7 @@
 
 #ifndef CAPNP_VERSION
 #error "CAPNP_VERSION is not defined, is capnp/generated-header-support.h missing?"
-#elif CAPNP_VERSION != 1000001
+#elif CAPNP_VERSION != 1003000
 #error "Version mismatch between generated code and library headers.  You must use the same version of the Cap'n Proto compiler and library."
 #endif
 
@@ -1323,7 +1323,7 @@ struct ControlsState::BrickpilotShadowState {
   class Pipeline;
 
   struct _capnpPrivate {
-    CAPNP_DECLARE_STRUCT_HEADER(bbe72530750aa451, 6, 0)
+    CAPNP_DECLARE_STRUCT_HEADER(bbe72530750aa451, 13, 0)
     #if !CAPNP_LITE
     static constexpr ::capnp::_::RawBrandedSchema const* brand() { return &schema->defaultBrand; }
     #endif  // !CAPNP_LITE
@@ -3132,7 +3132,7 @@ public:
 #endif  // !CAPNP_LITE
 
   template <typename Key2 = ::capnp::AnyPointer, typename Value2 = ::capnp::AnyPointer>
-  typename Map<Key2, Value2>::Reader asGeneric() {
+  typename Map<Key2, Value2>::Reader asGeneric() const {
     return typename Map<Key2, Value2>::Reader(_reader);
   }
 
@@ -3226,7 +3226,7 @@ public:
 #endif  // !CAPNP_LITE
 
   template <typename Key2 = ::capnp::AnyPointer, typename Value2 = ::capnp::AnyPointer>
-  typename Map<Key2, Value2>::Entry::Reader asMapGeneric() {
+  typename Map<Key2, Value2>::Entry::Reader asMapGeneric() const {
     return typename Map<Key2, Value2>::Entry::Reader(_reader);
   }
 
@@ -8264,6 +8264,68 @@ public:
 
   inline bool getStopping() const;
 
+  inline bool getLongitudinalAssistVehicleEnabled() const;
+
+  inline bool getLongitudinalAssistParamEnabled() const;
+
+  inline bool getLongitudinalAssistActive() const;
+
+  inline bool getLongitudinalAssistShadowCandidate() const;
+
+  inline  ::uint32_t getLongitudinalAssistSuppressors() const;
+
+  inline  ::uint32_t getLongitudinalAssistVersionCode() const;
+
+  inline  ::uint32_t getLongitudinalAssistCandidateHash() const;
+
+  inline float getLongitudinalAssistATarget() const;
+
+  inline float getLongitudinalAssistAssistedATarget() const;
+
+  inline float getLongitudinalAssistDelta() const;
+
+  inline float getLongitudinalAssistHoldTimer() const;
+
+  inline float getLongitudinalAssistHoldTarget() const;
+
+  inline bool getLongitudinalAssistHeldActivation() const;
+
+  inline bool getLongitudinalPlannerFloorShadowCandidate() const;
+
+  inline float getLongitudinalAccelLag() const;
+
+  inline float getLongitudinalLateralDemand() const;
+
+  inline bool getLongitudinalLeadClosing() const;
+
+  inline  ::uint8_t getLongitudinalPlanSource() const;
+
+  inline bool getLongitudinalAllowThrottle() const;
+
+  inline bool getSteeringGuardTucsonCanfdScope() const;
+
+  inline bool getSteeringGuardHighAngleLatched() const;
+
+  inline bool getSteeringGuardFaultCooldownActive() const;
+
+  inline bool getSteeringGuardTemporaryFault() const;
+
+  inline bool getSteeringGuardSuppressed() const;
+
+  inline bool getSteeringGuardImmediateSuppression() const;
+
+  inline bool getSteeringGuardTorqueZeroed() const;
+
+  inline  ::uint16_t getSteeringGuardFaultCooldownFrames() const;
+
+  inline  ::uint16_t getSteeringGuardAboveLimitFrames() const;
+
+  inline float getSteeringGuardAngleDeg() const;
+
+  inline float getSteeringGuardRecoveryAngleDeg() const;
+
+  inline bool getSteeringGuardUpstreamWouldSuppress() const;
+
 private:
   ::capnp::_::StructReader _reader;
   template <typename, ::capnp::Kind>
@@ -8354,6 +8416,99 @@ public:
 
   inline bool getStopping();
   inline void setStopping(bool value);
+
+  inline bool getLongitudinalAssistVehicleEnabled();
+  inline void setLongitudinalAssistVehicleEnabled(bool value);
+
+  inline bool getLongitudinalAssistParamEnabled();
+  inline void setLongitudinalAssistParamEnabled(bool value);
+
+  inline bool getLongitudinalAssistActive();
+  inline void setLongitudinalAssistActive(bool value);
+
+  inline bool getLongitudinalAssistShadowCandidate();
+  inline void setLongitudinalAssistShadowCandidate(bool value);
+
+  inline  ::uint32_t getLongitudinalAssistSuppressors();
+  inline void setLongitudinalAssistSuppressors( ::uint32_t value);
+
+  inline  ::uint32_t getLongitudinalAssistVersionCode();
+  inline void setLongitudinalAssistVersionCode( ::uint32_t value);
+
+  inline  ::uint32_t getLongitudinalAssistCandidateHash();
+  inline void setLongitudinalAssistCandidateHash( ::uint32_t value);
+
+  inline float getLongitudinalAssistATarget();
+  inline void setLongitudinalAssistATarget(float value);
+
+  inline float getLongitudinalAssistAssistedATarget();
+  inline void setLongitudinalAssistAssistedATarget(float value);
+
+  inline float getLongitudinalAssistDelta();
+  inline void setLongitudinalAssistDelta(float value);
+
+  inline float getLongitudinalAssistHoldTimer();
+  inline void setLongitudinalAssistHoldTimer(float value);
+
+  inline float getLongitudinalAssistHoldTarget();
+  inline void setLongitudinalAssistHoldTarget(float value);
+
+  inline bool getLongitudinalAssistHeldActivation();
+  inline void setLongitudinalAssistHeldActivation(bool value);
+
+  inline bool getLongitudinalPlannerFloorShadowCandidate();
+  inline void setLongitudinalPlannerFloorShadowCandidate(bool value);
+
+  inline float getLongitudinalAccelLag();
+  inline void setLongitudinalAccelLag(float value);
+
+  inline float getLongitudinalLateralDemand();
+  inline void setLongitudinalLateralDemand(float value);
+
+  inline bool getLongitudinalLeadClosing();
+  inline void setLongitudinalLeadClosing(bool value);
+
+  inline  ::uint8_t getLongitudinalPlanSource();
+  inline void setLongitudinalPlanSource( ::uint8_t value);
+
+  inline bool getLongitudinalAllowThrottle();
+  inline void setLongitudinalAllowThrottle(bool value);
+
+  inline bool getSteeringGuardTucsonCanfdScope();
+  inline void setSteeringGuardTucsonCanfdScope(bool value);
+
+  inline bool getSteeringGuardHighAngleLatched();
+  inline void setSteeringGuardHighAngleLatched(bool value);
+
+  inline bool getSteeringGuardFaultCooldownActive();
+  inline void setSteeringGuardFaultCooldownActive(bool value);
+
+  inline bool getSteeringGuardTemporaryFault();
+  inline void setSteeringGuardTemporaryFault(bool value);
+
+  inline bool getSteeringGuardSuppressed();
+  inline void setSteeringGuardSuppressed(bool value);
+
+  inline bool getSteeringGuardImmediateSuppression();
+  inline void setSteeringGuardImmediateSuppression(bool value);
+
+  inline bool getSteeringGuardTorqueZeroed();
+  inline void setSteeringGuardTorqueZeroed(bool value);
+
+  inline  ::uint16_t getSteeringGuardFaultCooldownFrames();
+  inline void setSteeringGuardFaultCooldownFrames( ::uint16_t value);
+
+  inline  ::uint16_t getSteeringGuardAboveLimitFrames();
+  inline void setSteeringGuardAboveLimitFrames( ::uint16_t value);
+
+  inline float getSteeringGuardAngleDeg();
+  inline void setSteeringGuardAngleDeg(float value);
+
+  inline float getSteeringGuardRecoveryAngleDeg();
+  inline void setSteeringGuardRecoveryAngleDeg(float value);
+
+  inline bool getSteeringGuardUpstreamWouldSuppress();
+  inline void setSteeringGuardUpstreamWouldSuppress(bool value);
 
 private:
   ::capnp::_::StructBuilder _builder;
@@ -30878,6 +31033,440 @@ inline bool ControlsState::BrickpilotShadowState::Builder::getStopping() {
 inline void ControlsState::BrickpilotShadowState::Builder::setStopping(bool value) {
   _builder.setDataField<bool>(
       ::capnp::bounded<74>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistVehicleEnabled() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<75>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistVehicleEnabled() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<75>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistVehicleEnabled(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<75>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistParamEnabled() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<76>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistParamEnabled() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<76>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistParamEnabled(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<76>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistActive() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<77>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistActive() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<77>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistActive(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<77>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistShadowCandidate() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<78>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistShadowCandidate() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<78>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistShadowCandidate(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<78>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistSuppressors() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<11>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistSuppressors() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<11>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistSuppressors( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<11>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistVersionCode() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<12>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistVersionCode() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<12>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistVersionCode( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<12>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistCandidateHash() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<13>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistCandidateHash() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<13>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistCandidateHash( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<13>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistATarget() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<14>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistATarget() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<14>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistATarget(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<14>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistAssistedATarget() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<15>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistAssistedATarget() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<15>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistAssistedATarget(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<15>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistDelta() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<16>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistDelta() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<16>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistDelta(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<16>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistHoldTimer() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<17>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistHoldTimer() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<17>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistHoldTimer(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<17>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistHoldTarget() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<18>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistHoldTarget() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<18>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistHoldTarget(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<18>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalAssistHeldActivation() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<79>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalAssistHeldActivation() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<79>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAssistHeldActivation(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<79>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalPlannerFloorShadowCandidate() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<80>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalPlannerFloorShadowCandidate() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<80>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalPlannerFloorShadowCandidate(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<80>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getLongitudinalAccelLag() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<19>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getLongitudinalAccelLag() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<19>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAccelLag(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<19>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getLongitudinalLateralDemand() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<20>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getLongitudinalLateralDemand() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<20>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalLateralDemand(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<20>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalLeadClosing() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<81>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalLeadClosing() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<81>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalLeadClosing(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<81>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t ControlsState::BrickpilotShadowState::Reader::getLongitudinalPlanSource() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<11>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t ControlsState::BrickpilotShadowState::Builder::getLongitudinalPlanSource() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<11>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalPlanSource( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<11>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getLongitudinalAllowThrottle() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<82>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getLongitudinalAllowThrottle() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<82>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setLongitudinalAllowThrottle(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<82>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardTucsonCanfdScope() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<83>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardTucsonCanfdScope() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<83>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardTucsonCanfdScope(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<83>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardHighAngleLatched() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<84>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardHighAngleLatched() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<84>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardHighAngleLatched(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<84>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardFaultCooldownActive() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<85>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardFaultCooldownActive() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<85>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardFaultCooldownActive(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<85>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardTemporaryFault() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<86>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardTemporaryFault() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<86>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardTemporaryFault(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<86>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardSuppressed() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<87>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardSuppressed() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<87>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardSuppressed(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<87>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardImmediateSuppression() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<672>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardImmediateSuppression() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<672>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardImmediateSuppression(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<672>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardTorqueZeroed() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<673>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardTorqueZeroed() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<673>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardTorqueZeroed(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<673>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint16_t ControlsState::BrickpilotShadowState::Reader::getSteeringGuardFaultCooldownFrames() const {
+  return _reader.getDataField< ::uint16_t>(
+      ::capnp::bounded<43>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint16_t ControlsState::BrickpilotShadowState::Builder::getSteeringGuardFaultCooldownFrames() {
+  return _builder.getDataField< ::uint16_t>(
+      ::capnp::bounded<43>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardFaultCooldownFrames( ::uint16_t value) {
+  _builder.setDataField< ::uint16_t>(
+      ::capnp::bounded<43>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint16_t ControlsState::BrickpilotShadowState::Reader::getSteeringGuardAboveLimitFrames() const {
+  return _reader.getDataField< ::uint16_t>(
+      ::capnp::bounded<44>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint16_t ControlsState::BrickpilotShadowState::Builder::getSteeringGuardAboveLimitFrames() {
+  return _builder.getDataField< ::uint16_t>(
+      ::capnp::bounded<44>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardAboveLimitFrames( ::uint16_t value) {
+  _builder.setDataField< ::uint16_t>(
+      ::capnp::bounded<44>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getSteeringGuardAngleDeg() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<23>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getSteeringGuardAngleDeg() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<23>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardAngleDeg(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<23>() * ::capnp::ELEMENTS, value);
+}
+
+inline float ControlsState::BrickpilotShadowState::Reader::getSteeringGuardRecoveryAngleDeg() const {
+  return _reader.getDataField<float>(
+      ::capnp::bounded<24>() * ::capnp::ELEMENTS);
+}
+
+inline float ControlsState::BrickpilotShadowState::Builder::getSteeringGuardRecoveryAngleDeg() {
+  return _builder.getDataField<float>(
+      ::capnp::bounded<24>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardRecoveryAngleDeg(float value) {
+  _builder.setDataField<float>(
+      ::capnp::bounded<24>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Reader::getSteeringGuardUpstreamWouldSuppress() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<674>() * ::capnp::ELEMENTS);
+}
+
+inline bool ControlsState::BrickpilotShadowState::Builder::getSteeringGuardUpstreamWouldSuppress() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<674>() * ::capnp::ELEMENTS);
+}
+inline void ControlsState::BrickpilotShadowState::Builder::setSteeringGuardUpstreamWouldSuppress(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<674>() * ::capnp::ELEMENTS, value);
 }
 
 inline float ControlsState::Deprecated::Reader::getVEgo() const {

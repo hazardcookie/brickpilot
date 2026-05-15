@@ -5,11 +5,13 @@ from opendbc.car.hyundai.values import CAR, HyundaiFlags
 from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   BRICKPILOT_HOLD_SECONDS,
   BRICKPILOT_LONGITUDINAL_VERSION,
+  BRICKPILOT_LONGITUDINAL_VERSION_CODE,
   BrickpilotLongitudinalSuppressor,
   MAX_ASSIST_DELTA,
   MAX_ASSISTED_A_TARGET,
   MIN_CATCHUP_SPEED_DEFICIT,
   ULTIMATE_100K_CANDIDATE_ID,
+  ULTIMATE_100K_CANDIDATE_HASH,
   brickpilot_tucson_longitudinal_assist,
   is_brickpilot_tucson_phev_scope,
 )
@@ -139,8 +141,10 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  prev_state=prev_state, dt=dt)
 
   def test_039_ultimate_frontier_constants_are_promoted(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.3.9.7")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.3.25.0")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 32500)
     self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "ultimate_micro_frontier_174_final0008_j19_h1.769_dc0.475_md0.649")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3748461780)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 3.97 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.649)
     self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 1.766)

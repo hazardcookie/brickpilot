@@ -138,7 +138,7 @@ class BookmarkIcon(Widget):
 class AugmentedRoadView(CameraView):
   def __init__(self,
                bookmark_callback: Callable[[], int | None] | None = None,
-               bookmark_tag_callback: Callable[[str, int | None], None] | None = None,
+               bookmark_tag_callback: Callable[[str, int | None, tuple[str, ...] | None], None] | None = None,
                stream_type: VisionStreamType = VisionStreamType.VISION_STREAM_ROAD):
     super().__init__("camerad", stream_type)
     self._bookmark_callback = bookmark_callback
