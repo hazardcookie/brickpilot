@@ -33,6 +33,7 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
 
   ba = bytearray(24)
   ba[11] = 250
+  ba[14] = 1
   c5 = bytearray(24)
   c5[5] = 7
   a5 = bytearray(24)
@@ -51,6 +52,8 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   adas = bytearray(24)
   adas[17] = 226
   adas[18] = 255
+  f06f = bytearray(8)
+  f06f[4] = 244
 
   state.update_can_packets([
     (123, [
@@ -64,6 +67,7 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
       (0x120, bytes(a120), 0),
       (0x065, bytes(brake), 0),
       (0x310, bytes(adas), 1),
+      (0x06F, bytes(f06f), 0),
     ]),
   ])
 
@@ -71,8 +75,8 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   state._populate_brickpilot_phev_can(ret_sp)
 
   assert ret_sp.brickpilotPhevCanLoggerVersion == BRICKPILOT_PHEV_CAN_LOGGER_VERSION
-  assert ret_sp.brickpilotPhevCanCandidatePresentMask == 0x1FF
-  assert ret_sp.brickpilotPhevCanFrameUpdateMask == 0x1FF
+  assert ret_sp.brickpilotPhevCanCandidatePresentMask == 0x3FF
+  assert ret_sp.brickpilotPhevCanFrameUpdateMask == 0x3FF
   assert ret_sp.brickpilotPhevFaSourceMask == (1 << 0) | (1 << 5)
   assert ret_sp.brickpilotPhevSelectedSource == 0
   assert ret_sp.brickpilotPhevHybridFlagSet
@@ -89,11 +93,14 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   assert ret_sp.brickpilotPhevE0S16Byte10Le == 32000
   assert ret_sp.brickpilotPhevE0S16Byte16Le == -39
   assert ret_sp.brickpilotPhevBaB11S8 == -6
+  assert ret_sp.brickpilotPhevBaB14U8 == 1
   assert ret_sp.brickpilotPhev1C5B5U8 == 7
   assert ret_sp.brickpilotPhev1A5B14U8 == 31
   assert ret_sp.brickpilotPhev1A5B15U8 == 32
   assert ret_sp.brickpilotPhev1A5B16U8 == 33
   assert ret_sp.brickpilotPhev1A5B17U8 == 34
+  assert ret_sp.brickpilotPhev06FB4U8 == 244
+  assert ret_sp.brickpilotPhev06FB4S8 == -12
   assert ret_sp.brickpilotPhev10AB10U8 == 241
   assert ret_sp.brickpilotPhev10AB18U8 == 12
   assert ret_sp.brickpilotPhev120B3U8 == 145

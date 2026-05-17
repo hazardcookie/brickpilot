@@ -8,7 +8,7 @@
 
 #ifndef CAPNP_VERSION
 #error "CAPNP_VERSION is not defined, is capnp/generated-header-support.h missing?"
-#elif CAPNP_VERSION != 1000001
+#elif CAPNP_VERSION != 1003000
 #error "Version mismatch between generated code and library headers.  You must use the same version of the Cap'n Proto compiler and library."
 #endif
 
@@ -785,7 +785,7 @@ struct CarStateSP {
   class Pipeline;
 
   struct _capnpPrivate {
-    CAPNP_DECLARE_STRUCT_HEADER(b86e6369214c01c8, 7, 0)
+    CAPNP_DECLARE_STRUCT_HEADER(b86e6369214c01c8, 8, 0)
     #if !CAPNP_LITE
     static constexpr ::capnp::_::RawBrandedSchema const* brand() { return &schema->defaultBrand; }
     #endif  // !CAPNP_LITE
@@ -4316,6 +4316,12 @@ public:
 
   inline  ::uint8_t getBrickpilotPhev1A5B17U8() const;
 
+  inline  ::uint8_t getBrickpilotPhevBaB14U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev06FB4U8() const;
+
+  inline  ::int8_t getBrickpilotPhev06FB4S8() const;
+
 private:
   ::capnp::_::StructReader _reader;
   template <typename, ::capnp::Kind>
@@ -4451,6 +4457,15 @@ public:
 
   inline  ::uint8_t getBrickpilotPhev1A5B17U8();
   inline void setBrickpilotPhev1A5B17U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhevBaB14U8();
+  inline void setBrickpilotPhevBaB14U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev06FB4U8();
+  inline void setBrickpilotPhev06FB4U8( ::uint8_t value);
+
+  inline  ::int8_t getBrickpilotPhev06FB4S8();
+  inline void setBrickpilotPhev06FB4S8( ::int8_t value);
 
 private:
   ::capnp::_::StructBuilder _builder;
@@ -9198,6 +9213,48 @@ inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev1A5B17U8() {
 inline void CarStateSP::Builder::setBrickpilotPhev1A5B17U8( ::uint8_t value) {
   _builder.setDataField< ::uint8_t>(
       ::capnp::bounded<55>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevBaB14U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<56>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevBaB14U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<56>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevBaB14U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<56>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev06FB4U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<57>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev06FB4U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<57>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev06FB4U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<57>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int8_t CarStateSP::Reader::getBrickpilotPhev06FB4S8() const {
+  return _reader.getDataField< ::int8_t>(
+      ::capnp::bounded<58>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int8_t CarStateSP::Builder::getBrickpilotPhev06FB4S8() {
+  return _builder.getDataField< ::int8_t>(
+      ::capnp::bounded<58>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev06FB4S8( ::int8_t value) {
+  _builder.setDataField< ::int8_t>(
+      ::capnp::bounded<58>() * ::capnp::ELEMENTS, value);
 }
 
 inline bool LiveMapDataSP::Reader::getSpeedLimitValid() const {

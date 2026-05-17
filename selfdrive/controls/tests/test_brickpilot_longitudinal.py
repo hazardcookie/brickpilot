@@ -131,18 +131,30 @@ class LongitudinalPlanSP:
   smartCruiseControl: SmartCruiseControl = field(default_factory=SmartCruiseControl)
 
 
+@dataclass
+class CarStateSP:
+  brickpilotPhevCanLoggerVersion: int = 40000
+  brickpilotPhevCanCandidatePresentMask: int = 0x1
+  brickpilotPhevHybridFlagSet: bool = True
+  brickpilotPhevFaB4U8: int = 0
+  brickpilotPhevFaB4U8Bus0: int = 0
+  brickpilotPhevFaB4U8Bus130: int = 0
+  brickpilotBrake065B9U8: int = 0
+  brickpilotPhevBaB14U8: int = 0
+
+
 class TestBrickpilotLongitudinalAssist(unittest.TestCase):
   def run_assist(self, *, cp=CP(), cc=CC(), cs=CS(), plan=LongPlan(), radar=RadarState(), curvature=0.0,
                  accel_limits=(-3.5, 2.0), valid=True, model_v2=None, plan_sp=None, plan_sp_valid=True,
-                 prev_state=None, dt=0.05):
+                 car_state_sp=None, prev_state=None, dt=0.05):
     return brickpilot_tucson_longitudinal_assist(cp, cc, cs, plan, radar, curvature, accel_limits, valid=valid,
                                                  model_v2=model_v2, longitudinal_plan_sp=plan_sp,
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
-                                                 prev_state=prev_state, dt=dt)
+                                                 car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
   def test_039_ultimate_frontier_constants_are_promoted(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.3.30.0")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 33000)
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.0-beta")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40000)
     self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "ultimate_micro_frontier_174_final0008_j19_h1.769_dc0.475_md0.649")
     self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3748461780)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 3.97 * 0.44704, places=5)
@@ -230,6 +242,38 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
         self.assertFalse(state.active)
         self.assertIn(suppressor, state.suppressors)
         self.assertEqual(state.assisted_a_target, state.a_target)
+
+  def test_phev_regen_or_brake_can_state_suppresses_live_assist(self):
+    for car_state_sp in (
+      CarStateSP(brickpilotPhevFaB4U8=220),
+      CarStateSP(brickpilotPhevFaB4U8Bus0=220),
+      CarStateSP(brickpilotPhevFaB4U8Bus130=220),
+      CarStateSP(brickpilotBrake065B9U8=144),
+    ):
+      with self.subTest(car_state_sp=car_state_sp):
+        state = self.run_assist(car_state_sp=car_state_sp)
+        self.assertFalse(state.active)
+        self.assertIn(BrickpilotLongitudinalSuppressor.PHEV_REGEN_OR_BRAKE, state.suppressors)
+        self.assertEqual(state.assisted_a_target, state.a_target)
+
+  def test_phev_auto_hold_can_state_suppresses_live_assist(self):
+    state = self.run_assist(car_state_sp=CarStateSP(brickpilotPhevBaB14U8=1))
+    self.assertFalse(state.active)
+    self.assertIn(BrickpilotLongitudinalSuppressor.PHEV_STATIONARY_OR_AUTO_HOLD, state.suppressors)
+    self.assertEqual(state.assisted_a_target, state.a_target)
+
+  def test_phev_can_guard_requires_logger_and_phev_runtime(self):
+    cases = [
+      CarStateSP(brickpilotPhevCanLoggerVersion=0, brickpilotPhevFaB4U8=220, brickpilotPhevBaB14U8=1),
+      CarStateSP(brickpilotPhevCanCandidatePresentMask=0, brickpilotPhevHybridFlagSet=False,
+                 brickpilotPhevFaB4U8=220, brickpilotPhevBaB14U8=1),
+    ]
+    for car_state_sp in cases:
+      with self.subTest(car_state_sp=car_state_sp):
+        state = self.run_assist(car_state_sp=car_state_sp)
+        self.assertTrue(state.active)
+        self.assertNotIn(BrickpilotLongitudinalSuppressor.PHEV_REGEN_OR_BRAKE, state.suppressors)
+        self.assertNotIn(BrickpilotLongitudinalSuppressor.PHEV_STATIONARY_OR_AUTO_HOLD, state.suppressors)
 
   def test_safety_and_conservative_suppressors(self):
     cases = [

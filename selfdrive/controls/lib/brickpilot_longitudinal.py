@@ -30,6 +30,8 @@ class BrickpilotLongitudinalSuppressor(IntFlag):
   SUNNYPILOT_PLAN_INVALID = 1 << 17
   DEC_OR_SCC_ACTIVE = 1 << 18
   HIGH_PREDICTED_LATERAL_DEMAND = 1 << 19
+  PHEV_REGEN_OR_BRAKE = 1 << 20
+  PHEV_STATIONARY_OR_AUTO_HOLD = 1 << 21
 
 
 @dataclass(frozen=True)
@@ -52,16 +54,20 @@ class BrickpilotLongitudinalAssistState:
   lead_closing: bool = False
 
 
-# Brickpilot 0.3.30.0 carries the deployable/safety-clean 0.3.9.7 100k ultimate
-# frontier winner plus pre-0.4.0 shadow telemetry while keeping the original live hard veto posture: Tucson
-# CAN-FD scope only, cruise-source/no-lead/stop/driver/DEC/curve safety gates,
-# no planner floor creation, and no hold through planner-safety vetoes.  The new
-# live behavior is the durable plateau signal from replay: after a clean
-# activation, persist briefly through non-safety planner/target gaps only.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.3.30.0"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 33000
+# Brickpilot 0.4.0-beta keeps the bounded 0.3.30 catch-up assist and promotes
+# the first ML-backed PHEV CAN runtime guard: do not add catch-up energy while
+# 0x0FA/0x065 indicate regen/brake activity or 0x0BA indicates stationary
+# auto-hold state. The assist still never creates a planner floor and never
+# changes safety/rate limits.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.4.0-beta"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40000
 ULTIMATE_100K_CANDIDATE_ID = "ultimate_micro_frontier_174_final0008_j19_h1.769_dc0.475_md0.649"
 ULTIMATE_100K_CANDIDATE_HASH = 3748461780
+PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
+PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
+PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
+PHEV_BRAKE_065_B9_U8_THRESHOLD = 128
+PHEV_BA_B14_AUTO_HOLD_VALUE = 1
 MIN_POSITIVE_PLANNER_ACCEL = 0.35
 MIN_ACCEL_LAG = 0.35
 MIN_ASSIST_SPEED = 7.0 * CV.MPH_TO_MS
@@ -102,11 +108,47 @@ def _safe_enum_name(value: Any) -> str:
   return str(value).split(".")[-1].lower()
 
 
+def _safe_int(value: Any, default: int = 0) -> int:
+  try:
+    return int(value)
+  except (TypeError, ValueError):
+    return default
+
+
 def is_brickpilot_tucson_phev_scope(CP: Any) -> bool:
   """Tucson/CAN-FD scoped Brickpilot longitudinal research gate."""
   return bool(getattr(CP, "carFingerprint", None) == CAR.HYUNDAI_TUCSON_4TH_GEN and
               getattr(CP, "flags", 0) & HyundaiFlags.CANFD and
               getattr(CP, "openpilotLongitudinalControl", True))
+
+
+def _phev_can_logger_has_phev_runtime(car_state_sp: Any | None, min_version: int) -> bool:
+  if car_state_sp is None:
+    return False
+  logger_version = _safe_int(getattr(car_state_sp, "brickpilotPhevCanLoggerVersion", 0))
+  present_mask = _safe_int(getattr(car_state_sp, "brickpilotPhevCanCandidatePresentMask", 0))
+  return bool(logger_version >= min_version and
+              (getattr(car_state_sp, "brickpilotPhevHybridFlagSet", False) or (present_mask & 0x1)))
+
+
+def _phev_regen_or_brake_active(car_state_sp: Any | None) -> bool:
+  if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_REGEN_LOGGER_MIN_VERSION):
+    return False
+
+  fa_b4_values = (
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8", 0)),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus0", 0)),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus130", 0)),
+  )
+  brake_b9 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B9U8", 0))
+  return bool(max(fa_b4_values) >= PHEV_FA_B4_REGEN_U8_THRESHOLD or
+              brake_b9 >= PHEV_BRAKE_065_B9_U8_THRESHOLD)
+
+
+def _phev_stationary_or_auto_hold_active(car_state_sp: Any | None) -> bool:
+  if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION):
+    return False
+  return _safe_int(getattr(car_state_sp, "brickpilotPhevBaB14U8", 0)) == PHEV_BA_B14_AUTO_HOLD_VALUE
 
 
 def _trajectory_speed_deficit(long_plan: Any, v_ego: float) -> float:
@@ -194,9 +236,10 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                           valid: bool = True, model_v2: Any | None = None,
                                           longitudinal_plan_sp: Any | None = None,
                                           longitudinal_plan_sp_valid: bool = True,
+                                          car_state_sp: Any | None = None,
                                           prev_state: BrickpilotLongitudinalAssistState | None = None,
                                           dt: float = 0.05) -> BrickpilotLongitudinalAssistState:
-  """Conservative 0.3.9.7 Tucson catch-up convergence assist (behavior carried from 0.3.9.6).
+  """Conservative Tucson catch-up convergence assist with PHEV CAN-aware vetoes.
 
   This never creates a planner-side floor and never changes safety/rate limits.
   It nudges the aTarget passed into LongControl in clean catch-up contexts, and
@@ -238,6 +281,12 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     suppressors |= BrickpilotLongitudinalSuppressor.DEC_OR_SCC_ACTIVE
   if high_predicted_lateral:
     suppressors |= BrickpilotLongitudinalSuppressor.HIGH_PREDICTED_LATERAL_DEMAND
+  phev_regen_or_brake = enabled_for_vehicle and _phev_regen_or_brake_active(car_state_sp)
+  phev_stationary_or_auto_hold = enabled_for_vehicle and _phev_stationary_or_auto_hold_active(car_state_sp)
+  if phev_regen_or_brake:
+    suppressors |= BrickpilotLongitudinalSuppressor.PHEV_REGEN_OR_BRAKE
+  if phev_stationary_or_auto_hold:
+    suppressors |= BrickpilotLongitudinalSuppressor.PHEV_STATIONARY_OR_AUTO_HOLD
 
   source_name = _safe_enum_name(getattr(long_plan, "longitudinalPlanSource", "cruise"))
   if source_name not in {"", "0", "cruise"}:
@@ -267,6 +316,7 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                               longitudinal_plan_sp_valid and not getattr(long_plan, "shouldStop", False) and
                               not getattr(long_plan, "fcw", False) and not model_hard_brake and not radar_model_mismatch and
                               not dec_or_scc_active and not high_predicted_lateral and
+                              not phev_regen_or_brake and not phev_stationary_or_auto_hold and
                               not getattr(CS, "gasPressed", False) and not getattr(CS, "brakePressed", False) and
                               not getattr(CS, "steeringPressed", False) and not suppress_lead and
                               source_name in {"", "0", "cruise"} and

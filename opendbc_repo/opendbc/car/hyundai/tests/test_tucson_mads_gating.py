@@ -3,8 +3,6 @@ from types import SimpleNamespace
 from opendbc.car.hyundai.carcontroller import (
   CarController,
   MAX_ANGLE,
-  TUCSON_CANFD_ANGLE_RECOVERY,
-  TUCSON_CANFD_STEER_FAULT_COOLDOWN_FRAMES,
 )
 from opendbc.car.hyundai.values import CAR, HyundaiFlags
 from opendbc.sunnypilot.car.hyundai.mads import MadsDataSP
@@ -16,8 +14,6 @@ class TestTucsonCanFdMadsGating:
     controller = CarController.__new__(CarController)
     controller.CP = SimpleNamespace(flags=flags, carFingerprint=car_fingerprint)
     controller.mads = MadsDataSP(mads_enabled, True, False, False)
-    controller.tucson_canfd_angle_limited = False
-    controller.tucson_canfd_steer_fault_cooldown_frames = 0
     return controller
 
   @staticmethod
@@ -46,27 +42,15 @@ class TestTucsonCanFdMadsGating:
       assert controller.get_tucson_canfd_apply_steer_req(car_control, car_state, True)
       assert not controller.get_tucson_canfd_apply_steer_req(car_control, car_state, False)
 
-  def test_high_angle_latches_until_recovery_hysteresis(self):
+  def test_tucson_guard_restores_normal_upstream_request_state(self):
     controller = self.controller()
 
-    assert not controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(angle=MAX_ANGLE), True)
-    assert not controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(angle=TUCSON_CANFD_ANGLE_RECOVERY + 1), True)
-    assert controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(angle=TUCSON_CANFD_ANGLE_RECOVERY), True)
-
-  def test_steer_fault_temporary_cooldown_suppresses_active_fault_plus_exact_subsequent_frames(self):
-    controller = self.controller()
-
-    # The fault frame is suppressed and starts a 100-frame cooldown for the
-    # subsequent no-fault frames; recovery is allowed on frame 101 after fault.
-    assert not controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(steer_fault=True), True)
-    assert controller.tucson_canfd_steer_fault_cooldown_frames == TUCSON_CANFD_STEER_FAULT_COOLDOWN_FRAMES
-
-    for remaining_before_call in range(TUCSON_CANFD_STEER_FAULT_COOLDOWN_FRAMES, 0, -1):
-      assert not controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(), True)
-      assert controller.tucson_canfd_steer_fault_cooldown_frames == remaining_before_call - 1
-
-    assert controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(), True)
-    assert controller.tucson_canfd_steer_fault_cooldown_frames == 0
+    # The old local guard suppressed immediately here. 0.4.0-beta keeps only
+    # the upstream common_fault_avoidance result that was passed in.
+    assert controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(angle=MAX_ANGLE), True)
+    assert controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(steer_fault=True), True)
+    assert not controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(angle=MAX_ANGLE), False)
+    assert not controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(steer_fault=True), False)
 
   def test_non_tucson_or_non_mads_keeps_existing_request_state(self):
     assert self.controller(car_fingerprint=CAR.KIA_EV6).get_tucson_canfd_apply_steer_req(self.car_control(enabled=False), self.car_state(), True)

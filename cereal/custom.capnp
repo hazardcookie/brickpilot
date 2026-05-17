@@ -436,11 +436,11 @@ struct BackupManagerSP @0xf98d843bfd7004a3 {
 struct CarStateSP @0xb86e6369214c01c8 {
   speedLimit @0 :Float32;
 
-  # Brickpilot 0.3.30.0 read-only PHEV CAN candidate logger.
+  # Brickpilot 0.4.0-beta read-only PHEV CAN candidate logger.
   #
   # Candidate present/update mask bits:
   # 0=0x0FA, 1=0x0E0, 2=0x0BA, 3=0x065, 4=0x10A,
-  # 5=0x120, 6=0x1C5, 7=0x310, 8=0x1A5.
+  # 5=0x120, 6=0x1C5, 7=0x310, 8=0x1A5, 9=0x06F.
   #
   # Source mask bits:
   # 0=bus0, 1=bus1, 2=bus2, 3=bus128, 4=bus129, 5=bus130,
@@ -480,6 +480,9 @@ struct CarStateSP @0xb86e6369214c01c8 {
   brickpilotPhev1A5B15U8 @33 :UInt8;
   brickpilotPhev1A5B16U8 @34 :UInt8;
   brickpilotPhev1A5B17U8 @35 :UInt8;
+  brickpilotPhevBaB14U8 @36 :UInt8;
+  brickpilotPhev06FB4U8 @37 :UInt8;
+  brickpilotPhev06FB4S8 @38 :Int8;
 }
 
 struct LiveMapDataSP @0xf416ec09499d9d19 {

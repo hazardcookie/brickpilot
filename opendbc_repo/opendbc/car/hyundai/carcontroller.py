@@ -23,12 +23,6 @@ MAX_ANGLE = 85
 MAX_ANGLE_FRAMES = 89
 MAX_ANGLE_CONSECUTIVE_FRAMES = 2
 
-# Local Tucson CAN-FD MADS research guard. Keep Dan's always-steering behavior
-# intact in normal MADS states (including CC.enabled false / gas / brake), but
-# latch off actuation in EPS-risk states where Hyundai is known to fault.
-TUCSON_CANFD_ANGLE_RECOVERY = 80
-TUCSON_CANFD_STEER_FAULT_COOLDOWN_FRAMES = 100
-
 # On some HKG CAN and CAN FD non-CANFD_ALT_BUTTONS, the cancel button (CF_Clu_CruiseSwState / CRUISE_BUTTONS = 4) is
 # a pause/resume toggle, not a dedicated cancel. Firing it mid-brake inadvertently can cause a re-enable attempt
 # and triggers the "SCC Conditions Not Met" alert. Delaying the button send lets factory SCC disengage
@@ -79,40 +73,11 @@ class CarController(CarControllerBase, EsccCarController, LeadDataCarController,
     self.car_fingerprint = CP.carFingerprint
     self.last_button_frame = 0
     self.cancel_counter = 0
-    self.tucson_canfd_angle_limited = False
-    self.tucson_canfd_steer_fault_cooldown_frames = 0
 
-  def is_tucson_canfd_mads_active(self, CC) -> bool:
-    return bool(self.CP.flags & HyundaiFlags.CANFD and
-                self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN and
-                self.mads.enable_mads and CC.latActive)
-
-  def get_tucson_canfd_apply_steer_req(self, CC, CS, apply_steer_req: bool) -> bool:
-    if not self.is_tucson_canfd_mads_active(CC):
-      return apply_steer_req
-
-    # Do not use CC.enabled, cruise override, gas, brake, or driver steering
-    # override here: those are normal MADS always-steering cases. Only suppress
-    # EPS-risk cases: active/recent steering faults and high steering angle.
-    # The active fault frame is suppressed and seeds a cooldown; the full
-    # cooldown count then applies to subsequent no-fault frames before recovery.
-    steer_fault_temporary = bool(getattr(CS.out, "steerFaultTemporary", False))
-    suppress_for_steer_fault_cooldown = steer_fault_temporary
-    if steer_fault_temporary:
-      self.tucson_canfd_steer_fault_cooldown_frames = TUCSON_CANFD_STEER_FAULT_COOLDOWN_FRAMES
-    elif getattr(self, "tucson_canfd_steer_fault_cooldown_frames", 0) > 0:
-      suppress_for_steer_fault_cooldown = True
-      self.tucson_canfd_steer_fault_cooldown_frames -= 1
-
-    steering_angle_abs = abs(CS.out.steeringAngleDeg)
-    if steering_angle_abs >= MAX_ANGLE:
-      self.tucson_canfd_angle_limited = True
-    elif steering_angle_abs <= TUCSON_CANFD_ANGLE_RECOVERY:
-      self.tucson_canfd_angle_limited = False
-
-    if self.tucson_canfd_angle_limited or suppress_for_steer_fault_cooldown:
-      return False
-
+  @staticmethod
+  def get_tucson_canfd_apply_steer_req(CC, CS, apply_steer_req: bool) -> bool:
+    # 0.4.0-beta restores normal Hyundai steering behavior: no extra Tucson
+    # CAN-FD MADS angle latch or steer-fault cooldown beyond common_fault_avoidance.
     return apply_steer_req
 
   def update(self, CC, CC_SP, CS, now_nanos):

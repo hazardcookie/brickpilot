@@ -35,9 +35,7 @@ LaneChangeDirection = log.LaneChangeDirection
 
 ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
 BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG = 85.0
-BRICKPILOT_TUCSON_CANFD_GUARD_RECOVERY_ANGLE_DEG = 80.0
 BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_FRAMES = 89
-BRICKPILOT_TUCSON_CANFD_GUARD_FAULT_COOLDOWN_FRAMES = 100
 
 
 class Controls(ControlsExt):
@@ -54,7 +52,7 @@ class Controls(ControlsExt):
 
     self.sm = messaging.SubMaster(['liveDelay', 'liveParameters', 'liveTorqueParameters', 'modelV2', 'selfdriveState',
                                    'liveCalibration', 'livePose', 'longitudinalPlan', 'longitudinalPlanSP', 'lateralManeuverPlan',
-                                   'carState', 'carOutput', 'driverMonitoringState', 'onroadEvents', 'driverAssistance',
+                                   'carState', 'carStateSP', 'carOutput', 'driverMonitoringState', 'onroadEvents', 'driverAssistance',
                                    ] + self.sm_services_ext,
                                   poll='selfdriveState')
     self.pm = messaging.PubMaster(['carControl', 'controlsState'] + self.pm_services_ext)
@@ -65,8 +63,6 @@ class Controls(ControlsExt):
     self.brickpilot_shadow_torque_cmd_last = 0.0
     self.brickpilot_assist_enabled = False
     self.brickpilot_longitudinal_assist = BrickpilotLongitudinalAssistState()
-    self.brickpilot_tucson_guard_angle_limited = False
-    self.brickpilot_tucson_guard_fault_cooldown_frames = 0
     self.brickpilot_tucson_guard_above_limit_frames = 0
 
     self.pose_calibrator = PoseCalibrator()
@@ -155,6 +151,7 @@ class Controls(ControlsExt):
       model_v2=model_v2 if self.sm.valid['modelV2'] else None,
       longitudinal_plan_sp=self.sm['longitudinalPlanSP'],
       longitudinal_plan_sp_valid=bool(self.sm.valid['longitudinalPlanSP']),
+      car_state_sp=self.sm['carStateSP'] if self.sm.valid['carStateSP'] else None,
       prev_state=self.brickpilot_longitudinal_assist, dt=DT_CTRL)
     try:
       brickpilot_assist_enabled = self.params.get_bool("BrickpilotLongitudinalAssist")
@@ -220,35 +217,18 @@ class Controls(ControlsExt):
     upstream_would_suppress = bool(guard_active and
                                    self.brickpilot_tucson_guard_above_limit_frames > BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_FRAMES)
 
-    suppress_for_fault_cooldown = False
-    if guard_active:
-      suppress_for_fault_cooldown = temporary_fault
-      if temporary_fault:
-        self.brickpilot_tucson_guard_fault_cooldown_frames = BRICKPILOT_TUCSON_CANFD_GUARD_FAULT_COOLDOWN_FRAMES
-      elif self.brickpilot_tucson_guard_fault_cooldown_frames > 0:
-        suppress_for_fault_cooldown = True
-        self.brickpilot_tucson_guard_fault_cooldown_frames -= 1
-
-      if angle_abs >= BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG:
-        self.brickpilot_tucson_guard_angle_limited = True
-      elif angle_abs <= BRICKPILOT_TUCSON_CANFD_GUARD_RECOVERY_ANGLE_DEG:
-        self.brickpilot_tucson_guard_angle_limited = False
-    else:
-      suppress_for_fault_cooldown = bool(self.brickpilot_tucson_guard_fault_cooldown_frames > 0)
-
-    suppressed = bool(guard_active and (self.brickpilot_tucson_guard_angle_limited or suppress_for_fault_cooldown))
     return {
       "scope": tucson_canfd_scope,
-      "angle_latched": bool(self.brickpilot_tucson_guard_angle_limited),
-      "fault_cooldown_active": bool(suppress_for_fault_cooldown),
+      "angle_latched": False,
+      "fault_cooldown_active": False,
       "temporary_fault": temporary_fault,
-      "suppressed": suppressed,
-      "immediate_suppression": bool(suppressed and not upstream_would_suppress),
-      "torque_zeroed": bool(suppressed),
-      "fault_cooldown_frames": int(max(0, self.brickpilot_tucson_guard_fault_cooldown_frames)),
+      "suppressed": upstream_would_suppress,
+      "immediate_suppression": False,
+      "torque_zeroed": upstream_would_suppress,
+      "fault_cooldown_frames": 0,
       "above_limit_frames": int(max(0, self.brickpilot_tucson_guard_above_limit_frames)),
       "angle_deg": float(CS.steeringAngleDeg),
-      "recovery_angle_deg": BRICKPILOT_TUCSON_CANFD_GUARD_RECOVERY_ANGLE_DEG,
+      "recovery_angle_deg": BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG,
       "upstream_would_suppress": upstream_would_suppress,
     }
 

@@ -19,7 +19,7 @@ ButtonType = structs.CarState.ButtonEvent.Type
 PREV_BUTTON_SAMPLES = 8
 CLUSTER_SAMPLE_RATE = 20  # frames
 STANDSTILL_THRESHOLD = 12 * 0.03125
-BRICKPILOT_PHEV_CAN_LOGGER_VERSION = 33000
+BRICKPILOT_PHEV_CAN_LOGGER_VERSION = 40000
 
 BRICKPILOT_PHEV_CANDIDATE_BITS = {
   0x0FA: 1 << 0,
@@ -31,6 +31,7 @@ BRICKPILOT_PHEV_CANDIDATE_BITS = {
   0x1C5: 1 << 6,
   0x310: 1 << 7,
   0x1A5: 1 << 8,
+  0x06F: 1 << 9,
 }
 BRICKPILOT_PHEV_CANDIDATE_ADDRESSES = frozenset(BRICKPILOT_PHEV_CANDIDATE_BITS)
 
@@ -195,11 +196,13 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
     a120_dat, _ = self._brickpilot_phev_select_candidate_frame(0x120)
     brake_dat, _ = self._brickpilot_phev_select_candidate_frame(0x065)
     adas_dat, _ = self._brickpilot_phev_select_candidate_frame(0x310)
+    f06f_dat, _ = self._brickpilot_phev_select_candidate_frame(0x06F)
 
     ret_sp.brickpilotPhevE0S16Byte08Le = self._brickpilot_phev_s16_le(e0_dat, 8)
     ret_sp.brickpilotPhevE0S16Byte10Le = self._brickpilot_phev_s16_le(e0_dat, 10)
     ret_sp.brickpilotPhevE0S16Byte16Le = self._brickpilot_phev_s16_le(e0_dat, 16)
     ret_sp.brickpilotPhevBaB11S8 = self._brickpilot_phev_s8(ba_dat, 11)
+    ret_sp.brickpilotPhevBaB14U8 = self._brickpilot_phev_u8(ba_dat, 14)
     ret_sp.brickpilotPhev1C5B5U8 = self._brickpilot_phev_u8(c5_dat, 5)
     ret_sp.brickpilotPhev10AB10U8 = self._brickpilot_phev_u8(a10_dat, 10)
     ret_sp.brickpilotPhev10AB18U8 = self._brickpilot_phev_u8(a10_dat, 18)
@@ -212,6 +215,8 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
     ret_sp.brickpilotPhev1A5B15U8 = self._brickpilot_phev_u8(a5_dat, 15)
     ret_sp.brickpilotPhev1A5B16U8 = self._brickpilot_phev_u8(a5_dat, 16)
     ret_sp.brickpilotPhev1A5B17U8 = self._brickpilot_phev_u8(a5_dat, 17)
+    ret_sp.brickpilotPhev06FB4U8 = self._brickpilot_phev_u8(f06f_dat, 4)
+    ret_sp.brickpilotPhev06FB4S8 = self._brickpilot_phev_s8(f06f_dat, 4)
 
   def recent_button_interaction(self) -> bool:
     # On some newer model years, the CANCEL button acts as a pause/resume button based on the PCM state

@@ -205,3 +205,6 @@ class CarStateSP:
   brickpilotPhev1A5B15U8: int = auto_field()
   brickpilotPhev1A5B16U8: int = auto_field()
   brickpilotPhev1A5B17U8: int = auto_field()
+  brickpilotPhevBaB14U8: int = auto_field()
+  brickpilotPhev06FB4U8: int = auto_field()
+  brickpilotPhev06FB4S8: int = auto_field()
