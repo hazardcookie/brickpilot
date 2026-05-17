@@ -269,6 +269,7 @@ class CarInterfaceBase(ABC, CarInterfaceBaseSP):
 
   def update(self, can_packets: list[tuple[int, list[CanData]]]) -> tuple[structs.CarState, structs.CarStateSP]:
     # parse can
+    self.CS.update_can_packets(can_packets)
     for cp in self.can_parsers.values():
       if cp is not None:
         cp.update(can_packets)
@@ -330,6 +331,9 @@ class CarStateBase(ABC):
 
   @abstractmethod
   def update(self, can_parsers) -> tuple[structs.CarState, structs.CarStateSP]:
+    pass
+
+  def update_can_packets(self, can_packets: list[tuple[int, list[CanData]]]) -> None:
     pass
 
   def parse_wheel_speeds(self, cs, fl, fr, rl, rr, unit=CV.KPH_TO_MS):

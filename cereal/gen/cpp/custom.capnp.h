@@ -785,7 +785,7 @@ struct CarStateSP {
   class Pipeline;
 
   struct _capnpPrivate {
-    CAPNP_DECLARE_STRUCT_HEADER(b86e6369214c01c8, 1, 0)
+    CAPNP_DECLARE_STRUCT_HEADER(b86e6369214c01c8, 7, 0)
     #if !CAPNP_LITE
     static constexpr ::capnp::_::RawBrandedSchema const* brand() { return &schema->defaultBrand; }
     #endif  // !CAPNP_LITE
@@ -4246,6 +4246,76 @@ public:
 
   inline float getSpeedLimit() const;
 
+  inline  ::uint16_t getBrickpilotPhevCanLoggerVersion() const;
+
+  inline  ::uint32_t getBrickpilotPhevCanCandidatePresentMask() const;
+
+  inline  ::uint32_t getBrickpilotPhevCanFrameUpdateMask() const;
+
+  inline  ::uint32_t getBrickpilotPhevCanCandidateSourceMask() const;
+
+  inline  ::uint32_t getBrickpilotPhevFaSourceMask() const;
+
+  inline  ::uint8_t getBrickpilotPhevSelectedSource() const;
+
+  inline  ::uint32_t getBrickpilotPhevCanFrameCounter() const;
+
+  inline bool getBrickpilotPhevHybridFlagSet() const;
+
+  inline bool getBrickpilotPhevCanfdLkaSteerMsg() const;
+
+  inline  ::uint8_t getBrickpilotPhevCanfdEcanBus() const;
+
+  inline  ::uint8_t getBrickpilotPhevCanfdAcanBus() const;
+
+  inline  ::uint8_t getBrickpilotPhevCanfdCamBus() const;
+
+  inline  ::uint8_t getBrickpilotPhevFaB4U8() const;
+
+  inline  ::int8_t getBrickpilotPhevFaB4S8() const;
+
+  inline  ::uint8_t getBrickpilotPhevFaB4U8Bus0() const;
+
+  inline  ::int8_t getBrickpilotPhevFaB4S8Bus0() const;
+
+  inline  ::uint8_t getBrickpilotPhevFaB4U8Bus130() const;
+
+  inline  ::int8_t getBrickpilotPhevFaB4S8Bus130() const;
+
+  inline bool getBrickpilotPhevFaB4MirrorConsistent() const;
+
+  inline  ::int16_t getBrickpilotPhevE0S16Byte08Le() const;
+
+  inline  ::int16_t getBrickpilotPhevE0S16Byte10Le() const;
+
+  inline  ::int16_t getBrickpilotPhevE0S16Byte16Le() const;
+
+  inline  ::int8_t getBrickpilotPhevBaB11S8() const;
+
+  inline  ::uint8_t getBrickpilotPhev1C5B5U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev10AB10U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev10AB18U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev120B3U8() const;
+
+  inline  ::uint8_t getBrickpilotBrake065B9U8() const;
+
+  inline  ::uint8_t getBrickpilotBrake065B10U8() const;
+
+  inline  ::uint8_t getBrickpilotAdas310B17U8() const;
+
+  inline  ::uint8_t getBrickpilotAdas310B18U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev1A5B14U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev1A5B15U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev1A5B16U8() const;
+
+  inline  ::uint8_t getBrickpilotPhev1A5B17U8() const;
+
 private:
   ::capnp::_::StructReader _reader;
   template <typename, ::capnp::Kind>
@@ -4276,6 +4346,111 @@ public:
 
   inline float getSpeedLimit();
   inline void setSpeedLimit(float value);
+
+  inline  ::uint16_t getBrickpilotPhevCanLoggerVersion();
+  inline void setBrickpilotPhevCanLoggerVersion( ::uint16_t value);
+
+  inline  ::uint32_t getBrickpilotPhevCanCandidatePresentMask();
+  inline void setBrickpilotPhevCanCandidatePresentMask( ::uint32_t value);
+
+  inline  ::uint32_t getBrickpilotPhevCanFrameUpdateMask();
+  inline void setBrickpilotPhevCanFrameUpdateMask( ::uint32_t value);
+
+  inline  ::uint32_t getBrickpilotPhevCanCandidateSourceMask();
+  inline void setBrickpilotPhevCanCandidateSourceMask( ::uint32_t value);
+
+  inline  ::uint32_t getBrickpilotPhevFaSourceMask();
+  inline void setBrickpilotPhevFaSourceMask( ::uint32_t value);
+
+  inline  ::uint8_t getBrickpilotPhevSelectedSource();
+  inline void setBrickpilotPhevSelectedSource( ::uint8_t value);
+
+  inline  ::uint32_t getBrickpilotPhevCanFrameCounter();
+  inline void setBrickpilotPhevCanFrameCounter( ::uint32_t value);
+
+  inline bool getBrickpilotPhevHybridFlagSet();
+  inline void setBrickpilotPhevHybridFlagSet(bool value);
+
+  inline bool getBrickpilotPhevCanfdLkaSteerMsg();
+  inline void setBrickpilotPhevCanfdLkaSteerMsg(bool value);
+
+  inline  ::uint8_t getBrickpilotPhevCanfdEcanBus();
+  inline void setBrickpilotPhevCanfdEcanBus( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhevCanfdAcanBus();
+  inline void setBrickpilotPhevCanfdAcanBus( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhevCanfdCamBus();
+  inline void setBrickpilotPhevCanfdCamBus( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhevFaB4U8();
+  inline void setBrickpilotPhevFaB4U8( ::uint8_t value);
+
+  inline  ::int8_t getBrickpilotPhevFaB4S8();
+  inline void setBrickpilotPhevFaB4S8( ::int8_t value);
+
+  inline  ::uint8_t getBrickpilotPhevFaB4U8Bus0();
+  inline void setBrickpilotPhevFaB4U8Bus0( ::uint8_t value);
+
+  inline  ::int8_t getBrickpilotPhevFaB4S8Bus0();
+  inline void setBrickpilotPhevFaB4S8Bus0( ::int8_t value);
+
+  inline  ::uint8_t getBrickpilotPhevFaB4U8Bus130();
+  inline void setBrickpilotPhevFaB4U8Bus130( ::uint8_t value);
+
+  inline  ::int8_t getBrickpilotPhevFaB4S8Bus130();
+  inline void setBrickpilotPhevFaB4S8Bus130( ::int8_t value);
+
+  inline bool getBrickpilotPhevFaB4MirrorConsistent();
+  inline void setBrickpilotPhevFaB4MirrorConsistent(bool value);
+
+  inline  ::int16_t getBrickpilotPhevE0S16Byte08Le();
+  inline void setBrickpilotPhevE0S16Byte08Le( ::int16_t value);
+
+  inline  ::int16_t getBrickpilotPhevE0S16Byte10Le();
+  inline void setBrickpilotPhevE0S16Byte10Le( ::int16_t value);
+
+  inline  ::int16_t getBrickpilotPhevE0S16Byte16Le();
+  inline void setBrickpilotPhevE0S16Byte16Le( ::int16_t value);
+
+  inline  ::int8_t getBrickpilotPhevBaB11S8();
+  inline void setBrickpilotPhevBaB11S8( ::int8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev1C5B5U8();
+  inline void setBrickpilotPhev1C5B5U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev10AB10U8();
+  inline void setBrickpilotPhev10AB10U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev10AB18U8();
+  inline void setBrickpilotPhev10AB18U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev120B3U8();
+  inline void setBrickpilotPhev120B3U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotBrake065B9U8();
+  inline void setBrickpilotBrake065B9U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotBrake065B10U8();
+  inline void setBrickpilotBrake065B10U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotAdas310B17U8();
+  inline void setBrickpilotAdas310B17U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotAdas310B18U8();
+  inline void setBrickpilotAdas310B18U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev1A5B14U8();
+  inline void setBrickpilotPhev1A5B14U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev1A5B15U8();
+  inline void setBrickpilotPhev1A5B15U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev1A5B16U8();
+  inline void setBrickpilotPhev1A5B16U8( ::uint8_t value);
+
+  inline  ::uint8_t getBrickpilotPhev1A5B17U8();
+  inline void setBrickpilotPhev1A5B17U8( ::uint8_t value);
 
 private:
   ::capnp::_::StructBuilder _builder;
@@ -8533,6 +8708,496 @@ inline float CarStateSP::Builder::getSpeedLimit() {
 inline void CarStateSP::Builder::setSpeedLimit(float value) {
   _builder.setDataField<float>(
       ::capnp::bounded<0>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint16_t CarStateSP::Reader::getBrickpilotPhevCanLoggerVersion() const {
+  return _reader.getDataField< ::uint16_t>(
+      ::capnp::bounded<2>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint16_t CarStateSP::Builder::getBrickpilotPhevCanLoggerVersion() {
+  return _builder.getDataField< ::uint16_t>(
+      ::capnp::bounded<2>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanLoggerVersion( ::uint16_t value) {
+  _builder.setDataField< ::uint16_t>(
+      ::capnp::bounded<2>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t CarStateSP::Reader::getBrickpilotPhevCanCandidatePresentMask() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<2>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t CarStateSP::Builder::getBrickpilotPhevCanCandidatePresentMask() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<2>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanCandidatePresentMask( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<2>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t CarStateSP::Reader::getBrickpilotPhevCanFrameUpdateMask() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<3>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t CarStateSP::Builder::getBrickpilotPhevCanFrameUpdateMask() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<3>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanFrameUpdateMask( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<3>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t CarStateSP::Reader::getBrickpilotPhevCanCandidateSourceMask() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<4>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t CarStateSP::Builder::getBrickpilotPhevCanCandidateSourceMask() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<4>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanCandidateSourceMask( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<4>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t CarStateSP::Reader::getBrickpilotPhevFaSourceMask() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<5>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t CarStateSP::Builder::getBrickpilotPhevFaSourceMask() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<5>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaSourceMask( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<5>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevSelectedSource() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<6>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevSelectedSource() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<6>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevSelectedSource( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<6>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint32_t CarStateSP::Reader::getBrickpilotPhevCanFrameCounter() const {
+  return _reader.getDataField< ::uint32_t>(
+      ::capnp::bounded<6>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint32_t CarStateSP::Builder::getBrickpilotPhevCanFrameCounter() {
+  return _builder.getDataField< ::uint32_t>(
+      ::capnp::bounded<6>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanFrameCounter( ::uint32_t value) {
+  _builder.setDataField< ::uint32_t>(
+      ::capnp::bounded<6>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool CarStateSP::Reader::getBrickpilotPhevHybridFlagSet() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<56>() * ::capnp::ELEMENTS);
+}
+
+inline bool CarStateSP::Builder::getBrickpilotPhevHybridFlagSet() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<56>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevHybridFlagSet(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<56>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool CarStateSP::Reader::getBrickpilotPhevCanfdLkaSteerMsg() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<57>() * ::capnp::ELEMENTS);
+}
+
+inline bool CarStateSP::Builder::getBrickpilotPhevCanfdLkaSteerMsg() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<57>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanfdLkaSteerMsg(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<57>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevCanfdEcanBus() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<28>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevCanfdEcanBus() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<28>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanfdEcanBus( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<28>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevCanfdAcanBus() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<29>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevCanfdAcanBus() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<29>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanfdAcanBus( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<29>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevCanfdCamBus() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<30>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevCanfdCamBus() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<30>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevCanfdCamBus( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<30>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevFaB4U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<31>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevFaB4U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<31>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaB4U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<31>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int8_t CarStateSP::Reader::getBrickpilotPhevFaB4S8() const {
+  return _reader.getDataField< ::int8_t>(
+      ::capnp::bounded<32>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int8_t CarStateSP::Builder::getBrickpilotPhevFaB4S8() {
+  return _builder.getDataField< ::int8_t>(
+      ::capnp::bounded<32>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaB4S8( ::int8_t value) {
+  _builder.setDataField< ::int8_t>(
+      ::capnp::bounded<32>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevFaB4U8Bus0() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<33>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevFaB4U8Bus0() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<33>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaB4U8Bus0( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<33>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int8_t CarStateSP::Reader::getBrickpilotPhevFaB4S8Bus0() const {
+  return _reader.getDataField< ::int8_t>(
+      ::capnp::bounded<34>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int8_t CarStateSP::Builder::getBrickpilotPhevFaB4S8Bus0() {
+  return _builder.getDataField< ::int8_t>(
+      ::capnp::bounded<34>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaB4S8Bus0( ::int8_t value) {
+  _builder.setDataField< ::int8_t>(
+      ::capnp::bounded<34>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhevFaB4U8Bus130() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<35>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhevFaB4U8Bus130() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<35>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaB4U8Bus130( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<35>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int8_t CarStateSP::Reader::getBrickpilotPhevFaB4S8Bus130() const {
+  return _reader.getDataField< ::int8_t>(
+      ::capnp::bounded<36>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int8_t CarStateSP::Builder::getBrickpilotPhevFaB4S8Bus130() {
+  return _builder.getDataField< ::int8_t>(
+      ::capnp::bounded<36>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaB4S8Bus130( ::int8_t value) {
+  _builder.setDataField< ::int8_t>(
+      ::capnp::bounded<36>() * ::capnp::ELEMENTS, value);
+}
+
+inline bool CarStateSP::Reader::getBrickpilotPhevFaB4MirrorConsistent() const {
+  return _reader.getDataField<bool>(
+      ::capnp::bounded<58>() * ::capnp::ELEMENTS);
+}
+
+inline bool CarStateSP::Builder::getBrickpilotPhevFaB4MirrorConsistent() {
+  return _builder.getDataField<bool>(
+      ::capnp::bounded<58>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevFaB4MirrorConsistent(bool value) {
+  _builder.setDataField<bool>(
+      ::capnp::bounded<58>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int16_t CarStateSP::Reader::getBrickpilotPhevE0S16Byte08Le() const {
+  return _reader.getDataField< ::int16_t>(
+      ::capnp::bounded<19>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int16_t CarStateSP::Builder::getBrickpilotPhevE0S16Byte08Le() {
+  return _builder.getDataField< ::int16_t>(
+      ::capnp::bounded<19>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevE0S16Byte08Le( ::int16_t value) {
+  _builder.setDataField< ::int16_t>(
+      ::capnp::bounded<19>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int16_t CarStateSP::Reader::getBrickpilotPhevE0S16Byte10Le() const {
+  return _reader.getDataField< ::int16_t>(
+      ::capnp::bounded<20>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int16_t CarStateSP::Builder::getBrickpilotPhevE0S16Byte10Le() {
+  return _builder.getDataField< ::int16_t>(
+      ::capnp::bounded<20>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevE0S16Byte10Le( ::int16_t value) {
+  _builder.setDataField< ::int16_t>(
+      ::capnp::bounded<20>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int16_t CarStateSP::Reader::getBrickpilotPhevE0S16Byte16Le() const {
+  return _reader.getDataField< ::int16_t>(
+      ::capnp::bounded<21>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int16_t CarStateSP::Builder::getBrickpilotPhevE0S16Byte16Le() {
+  return _builder.getDataField< ::int16_t>(
+      ::capnp::bounded<21>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevE0S16Byte16Le( ::int16_t value) {
+  _builder.setDataField< ::int16_t>(
+      ::capnp::bounded<21>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::int8_t CarStateSP::Reader::getBrickpilotPhevBaB11S8() const {
+  return _reader.getDataField< ::int8_t>(
+      ::capnp::bounded<37>() * ::capnp::ELEMENTS);
+}
+
+inline  ::int8_t CarStateSP::Builder::getBrickpilotPhevBaB11S8() {
+  return _builder.getDataField< ::int8_t>(
+      ::capnp::bounded<37>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhevBaB11S8( ::int8_t value) {
+  _builder.setDataField< ::int8_t>(
+      ::capnp::bounded<37>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev1C5B5U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<44>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev1C5B5U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<44>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev1C5B5U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<44>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev10AB10U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<45>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev10AB10U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<45>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev10AB10U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<45>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev10AB18U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<46>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev10AB18U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<46>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev10AB18U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<46>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev120B3U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<47>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev120B3U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<47>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev120B3U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<47>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotBrake065B9U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<48>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotBrake065B9U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<48>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotBrake065B9U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<48>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotBrake065B10U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<49>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotBrake065B10U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<49>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotBrake065B10U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<49>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotAdas310B17U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<50>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotAdas310B17U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<50>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotAdas310B17U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<50>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotAdas310B18U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<51>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotAdas310B18U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<51>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotAdas310B18U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<51>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev1A5B14U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<52>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev1A5B14U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<52>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev1A5B14U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<52>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev1A5B15U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<53>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev1A5B15U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<53>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev1A5B15U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<53>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev1A5B16U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<54>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev1A5B16U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<54>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev1A5B16U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<54>() * ::capnp::ELEMENTS, value);
+}
+
+inline  ::uint8_t CarStateSP::Reader::getBrickpilotPhev1A5B17U8() const {
+  return _reader.getDataField< ::uint8_t>(
+      ::capnp::bounded<55>() * ::capnp::ELEMENTS);
+}
+
+inline  ::uint8_t CarStateSP::Builder::getBrickpilotPhev1A5B17U8() {
+  return _builder.getDataField< ::uint8_t>(
+      ::capnp::bounded<55>() * ::capnp::ELEMENTS);
+}
+inline void CarStateSP::Builder::setBrickpilotPhev1A5B17U8( ::uint8_t value) {
+  _builder.setDataField< ::uint8_t>(
+      ::capnp::bounded<55>() * ::capnp::ELEMENTS, value);
 }
 
 inline bool LiveMapDataSP::Reader::getSpeedLimitValid() const {

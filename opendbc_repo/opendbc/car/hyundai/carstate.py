@@ -19,6 +19,20 @@ ButtonType = structs.CarState.ButtonEvent.Type
 PREV_BUTTON_SAMPLES = 8
 CLUSTER_SAMPLE_RATE = 20  # frames
 STANDSTILL_THRESHOLD = 12 * 0.03125
+BRICKPILOT_PHEV_CAN_LOGGER_VERSION = 33000
+
+BRICKPILOT_PHEV_CANDIDATE_BITS = {
+  0x0FA: 1 << 0,
+  0x0E0: 1 << 1,
+  0x0BA: 1 << 2,
+  0x065: 1 << 3,
+  0x10A: 1 << 4,
+  0x120: 1 << 5,
+  0x1C5: 1 << 6,
+  0x310: 1 << 7,
+  0x1A5: 1 << 8,
+}
+BRICKPILOT_PHEV_CANDIDATE_ADDRESSES = frozenset(BRICKPILOT_PHEV_CANDIDATE_BITS)
 
 # Cancel button can sometimes be ACC pause/resume button, main button can also enable on some cars
 ENABLE_BUTTONS = (Buttons.RES_ACCEL, Buttons.SET_DECEL, Buttons.CANCEL)
@@ -70,6 +84,134 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
     self.cluster_speed_counter = CLUSTER_SAMPLE_RATE
 
     self.params = CarControllerParams(CP)
+    self._init_brickpilot_phev_can_logger()
+
+  def _init_brickpilot_phev_can_logger(self) -> None:
+    self.brickpilot_phev_candidate_data: dict[tuple[int, int], bytes] = {}
+    self.brickpilot_phev_present_mask = 0
+    self.brickpilot_phev_frame_update_mask = 0
+    self.brickpilot_phev_candidate_source_mask = 0
+    self.brickpilot_phev_fa_source_mask = 0
+    self.brickpilot_phev_frame_counter = 0
+
+  @staticmethod
+  def _brickpilot_phev_source_bit(src: int) -> int:
+    if src in (0, 1, 2):
+      return 1 << src
+    if src in (128, 129, 130):
+      return 1 << (src - 125)
+    return 1 << 7
+
+  @staticmethod
+  def _brickpilot_phev_u8(dat: bytes | None, idx: int) -> int:
+    return int(dat[idx]) if dat is not None and len(dat) > idx else 0
+
+  @classmethod
+  def _brickpilot_phev_s8(cls, dat: bytes | None, idx: int) -> int:
+    raw = cls._brickpilot_phev_u8(dat, idx)
+    return raw - 256 if raw >= 128 else raw
+
+  @staticmethod
+  def _brickpilot_phev_s16_le(dat: bytes | None, idx: int) -> int:
+    if dat is None or len(dat) <= idx + 1:
+      return 0
+    return int.from_bytes(dat[idx:idx + 2], byteorder="little", signed=True)
+
+  def update_can_packets(self, can_packets) -> None:
+    self.brickpilot_phev_frame_update_mask = 0
+    for _, frames in can_packets:
+      for address, dat, src in frames:
+        if address not in BRICKPILOT_PHEV_CANDIDATE_ADDRESSES:
+          continue
+
+        bit = BRICKPILOT_PHEV_CANDIDATE_BITS[address]
+        source_bit = self._brickpilot_phev_source_bit(int(src))
+        payload = bytes(dat)
+        self.brickpilot_phev_candidate_data[(int(address), int(src))] = payload
+        self.brickpilot_phev_present_mask |= bit
+        self.brickpilot_phev_frame_update_mask |= bit
+        self.brickpilot_phev_candidate_source_mask |= source_bit
+        if address == 0x0FA:
+          self.brickpilot_phev_fa_source_mask |= source_bit
+        self.brickpilot_phev_frame_counter += 1
+
+  def _brickpilot_phev_can_buses(self) -> CanBus:
+    return CanBus(self.CP)
+
+  def _brickpilot_phev_select_candidate_frame(self, address: int) -> tuple[bytes | None, int]:
+    CAN = self._brickpilot_phev_can_buses()
+    if address == 0x310:
+      source_priority = (1, 129, 0, 130, CAN.ECAN, CAN.ECAN + 128, 2, 128)
+    else:
+      source_priority = (0, 130, CAN.ECAN, CAN.ECAN + 128, 1, 129, 2, 128)
+
+    seen: set[int] = set()
+    for src in source_priority:
+      if src in seen:
+        continue
+      seen.add(src)
+      dat = self.brickpilot_phev_candidate_data.get((address, src))
+      if dat is not None:
+        return dat, src
+
+    for (addr, src), dat in self.brickpilot_phev_candidate_data.items():
+      if addr == address:
+        return dat, src
+    return None, 0
+
+  def _populate_brickpilot_phev_can(self, ret_sp) -> None:
+    CAN = self._brickpilot_phev_can_buses()
+    ret_sp.brickpilotPhevCanLoggerVersion = BRICKPILOT_PHEV_CAN_LOGGER_VERSION
+    ret_sp.brickpilotPhevCanCandidatePresentMask = int(self.brickpilot_phev_present_mask)
+    ret_sp.brickpilotPhevCanFrameUpdateMask = int(self.brickpilot_phev_frame_update_mask)
+    ret_sp.brickpilotPhevCanCandidateSourceMask = int(self.brickpilot_phev_candidate_source_mask)
+    ret_sp.brickpilotPhevFaSourceMask = int(self.brickpilot_phev_fa_source_mask)
+    ret_sp.brickpilotPhevCanFrameCounter = int(self.brickpilot_phev_frame_counter)
+    ret_sp.brickpilotPhevHybridFlagSet = bool(self.CP.flags & HyundaiFlags.HYBRID)
+    ret_sp.brickpilotPhevCanfdLkaSteerMsg = bool(self.CP.flags & HyundaiFlags.CANFD_LKA_STEER_MSG)
+    ret_sp.brickpilotPhevCanfdEcanBus = int(CAN.ECAN)
+    ret_sp.brickpilotPhevCanfdAcanBus = int(CAN.ACAN)
+    ret_sp.brickpilotPhevCanfdCamBus = int(CAN.CAM)
+
+    fa_dat, fa_src = self._brickpilot_phev_select_candidate_frame(0x0FA)
+    ret_sp.brickpilotPhevSelectedSource = int(fa_src)
+    ret_sp.brickpilotPhevFaB4U8 = self._brickpilot_phev_u8(fa_dat, 4)
+    ret_sp.brickpilotPhevFaB4S8 = self._brickpilot_phev_s8(fa_dat, 4)
+
+    fa_bus0 = self.brickpilot_phev_candidate_data.get((0x0FA, 0))
+    fa_bus130 = self.brickpilot_phev_candidate_data.get((0x0FA, 130))
+    ret_sp.brickpilotPhevFaB4U8Bus0 = self._brickpilot_phev_u8(fa_bus0, 4)
+    ret_sp.brickpilotPhevFaB4S8Bus0 = self._brickpilot_phev_s8(fa_bus0, 4)
+    ret_sp.brickpilotPhevFaB4U8Bus130 = self._brickpilot_phev_u8(fa_bus130, 4)
+    ret_sp.brickpilotPhevFaB4S8Bus130 = self._brickpilot_phev_s8(fa_bus130, 4)
+    ret_sp.brickpilotPhevFaB4MirrorConsistent = bool(fa_bus0 is not None and fa_bus130 is not None and
+                                                     self._brickpilot_phev_u8(fa_bus0, 4) == self._brickpilot_phev_u8(fa_bus130, 4))
+
+    e0_dat, _ = self._brickpilot_phev_select_candidate_frame(0x0E0)
+    ba_dat, _ = self._brickpilot_phev_select_candidate_frame(0x0BA)
+    c5_dat, _ = self._brickpilot_phev_select_candidate_frame(0x1C5)
+    a5_dat, _ = self._brickpilot_phev_select_candidate_frame(0x1A5)
+    a10_dat, _ = self._brickpilot_phev_select_candidate_frame(0x10A)
+    a120_dat, _ = self._brickpilot_phev_select_candidate_frame(0x120)
+    brake_dat, _ = self._brickpilot_phev_select_candidate_frame(0x065)
+    adas_dat, _ = self._brickpilot_phev_select_candidate_frame(0x310)
+
+    ret_sp.brickpilotPhevE0S16Byte08Le = self._brickpilot_phev_s16_le(e0_dat, 8)
+    ret_sp.brickpilotPhevE0S16Byte10Le = self._brickpilot_phev_s16_le(e0_dat, 10)
+    ret_sp.brickpilotPhevE0S16Byte16Le = self._brickpilot_phev_s16_le(e0_dat, 16)
+    ret_sp.brickpilotPhevBaB11S8 = self._brickpilot_phev_s8(ba_dat, 11)
+    ret_sp.brickpilotPhev1C5B5U8 = self._brickpilot_phev_u8(c5_dat, 5)
+    ret_sp.brickpilotPhev10AB10U8 = self._brickpilot_phev_u8(a10_dat, 10)
+    ret_sp.brickpilotPhev10AB18U8 = self._brickpilot_phev_u8(a10_dat, 18)
+    ret_sp.brickpilotPhev120B3U8 = self._brickpilot_phev_u8(a120_dat, 3)
+    ret_sp.brickpilotBrake065B9U8 = self._brickpilot_phev_u8(brake_dat, 9)
+    ret_sp.brickpilotBrake065B10U8 = self._brickpilot_phev_u8(brake_dat, 10)
+    ret_sp.brickpilotAdas310B17U8 = self._brickpilot_phev_u8(adas_dat, 17)
+    ret_sp.brickpilotAdas310B18U8 = self._brickpilot_phev_u8(adas_dat, 18)
+    ret_sp.brickpilotPhev1A5B14U8 = self._brickpilot_phev_u8(a5_dat, 14)
+    ret_sp.brickpilotPhev1A5B15U8 = self._brickpilot_phev_u8(a5_dat, 15)
+    ret_sp.brickpilotPhev1A5B16U8 = self._brickpilot_phev_u8(a5_dat, 16)
+    ret_sp.brickpilotPhev1A5B17U8 = self._brickpilot_phev_u8(a5_dat, 17)
 
   def recent_button_interaction(self) -> bool:
     # On some newer model years, the CANCEL button acts as a pause/resume button based on the PCM state
@@ -312,6 +454,7 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
       ret.cruiseState.available = self.get_main_cruise(ret)
 
     CarStateExt.update_canfd_ext(self, ret, ret_sp, can_parsers, speed_factor)
+    self._populate_brickpilot_phev_can(ret_sp)
 
     ret.blockPcmEnable = not self.recent_button_interaction()
 

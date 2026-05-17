@@ -435,6 +435,51 @@ struct BackupManagerSP @0xf98d843bfd7004a3 {
 
 struct CarStateSP @0xb86e6369214c01c8 {
   speedLimit @0 :Float32;
+
+  # Brickpilot 0.3.30.0 read-only PHEV CAN candidate logger.
+  #
+  # Candidate present/update mask bits:
+  # 0=0x0FA, 1=0x0E0, 2=0x0BA, 3=0x065, 4=0x10A,
+  # 5=0x120, 6=0x1C5, 7=0x310, 8=0x1A5.
+  #
+  # Source mask bits:
+  # 0=bus0, 1=bus1, 2=bus2, 3=bus128, 4=bus129, 5=bus130,
+  # 7=other bus.
+  brickpilotPhevCanLoggerVersion @1 :UInt16;
+  brickpilotPhevCanCandidatePresentMask @2 :UInt32;
+  brickpilotPhevCanFrameUpdateMask @3 :UInt32;
+  brickpilotPhevCanCandidateSourceMask @4 :UInt32;
+  brickpilotPhevFaSourceMask @5 :UInt32;
+  brickpilotPhevSelectedSource @6 :UInt8;
+  brickpilotPhevCanFrameCounter @7 :UInt32;
+  brickpilotPhevHybridFlagSet @8 :Bool;
+  brickpilotPhevCanfdLkaSteerMsg @9 :Bool;
+  brickpilotPhevCanfdEcanBus @10 :UInt8;
+  brickpilotPhevCanfdAcanBus @11 :UInt8;
+  brickpilotPhevCanfdCamBus @12 :UInt8;
+  brickpilotPhevFaB4U8 @13 :UInt8;
+  brickpilotPhevFaB4S8 @14 :Int8;
+  brickpilotPhevFaB4U8Bus0 @15 :UInt8;
+  brickpilotPhevFaB4S8Bus0 @16 :Int8;
+  brickpilotPhevFaB4U8Bus130 @17 :UInt8;
+  brickpilotPhevFaB4S8Bus130 @18 :Int8;
+  brickpilotPhevFaB4MirrorConsistent @19 :Bool;
+  brickpilotPhevE0S16Byte08Le @20 :Int16;
+  brickpilotPhevE0S16Byte10Le @21 :Int16;
+  brickpilotPhevE0S16Byte16Le @22 :Int16;
+  brickpilotPhevBaB11S8 @23 :Int8;
+  brickpilotPhev1C5B5U8 @24 :UInt8;
+  brickpilotPhev10AB10U8 @25 :UInt8;
+  brickpilotPhev10AB18U8 @26 :UInt8;
+  brickpilotPhev120B3U8 @27 :UInt8;
+  brickpilotBrake065B9U8 @28 :UInt8;
+  brickpilotBrake065B10U8 @29 :UInt8;
+  brickpilotAdas310B17U8 @30 :UInt8;
+  brickpilotAdas310B18U8 @31 :UInt8;
+  brickpilotPhev1A5B14U8 @32 :UInt8;
+  brickpilotPhev1A5B15U8 @33 :UInt8;
+  brickpilotPhev1A5B16U8 @34 :UInt8;
+  brickpilotPhev1A5B17U8 @35 :UInt8;
 }
 
 struct LiveMapDataSP @0xf416ec09499d9d19 {
