@@ -16,7 +16,7 @@ MASTER_SP_BRANCHES = ['master']
 RELEASE_BRANCHES = ['release-tizi-staging', 'release-mici-staging', 'release-tizi', 'release-mici', 'nightly']
 
 CUSTOM_BRAND_NAME: str = "Brickpilot"
-CUSTOM_BRAND_VERSION: str = "0.4.0-beta"
+CUSTOM_BRAND_VERSION: str = "0.4.1"
 CUSTOM_DISPLAY_VERSION: str = f"{CUSTOM_BRAND_NAME} {CUSTOM_BRAND_VERSION}"
 TESTED_BRANCHES = RELEASE_BRANCHES + ['devel-staging', 'nightly-dev'] + RELEASE_SP_BRANCHES + TESTED_SP_BRANCHES
 

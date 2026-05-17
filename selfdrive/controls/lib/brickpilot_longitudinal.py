@@ -54,13 +54,13 @@ class BrickpilotLongitudinalAssistState:
   lead_closing: bool = False
 
 
-# Brickpilot 0.4.0-beta keeps the bounded 0.3.30 catch-up assist and promotes
-# the first ML-backed PHEV CAN runtime guard: do not add catch-up energy while
-# 0x0FA/0x065 indicate regen/brake activity or 0x0BA indicates stationary
-# auto-hold state. The assist still never creates a planner floor and never
-# changes safety/rate limits.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.4.0-beta"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40000
+# Brickpilot 0.4.1 keeps the PHEV CAN runtime guard and promotes the
+# validation-data-backed planner-floor candidate into a live behavior change:
+# in clean cruise catch-up contexts, a large speed deficit can raise a weak
+# planner accel request to a bounded positive floor. It still never bypasses
+# driver, stop, lead, lateral, PHEV regen/brake, or actuator safety limits.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.4.1"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40100
 ULTIMATE_100K_CANDIDATE_ID = "ultimate_micro_frontier_174_final0008_j19_h1.769_dc0.475_md0.649"
 ULTIMATE_100K_CANDIDATE_HASH = 3748461780
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
@@ -74,6 +74,9 @@ MIN_ASSIST_SPEED = 7.0 * CV.MPH_TO_MS
 MIN_CATCHUP_SPEED_DEFICIT = 3.97 * CV.MPH_TO_MS
 HOLD_GAP_SPEED_DEFICIT_MARGIN = 2.0 * CV.MPH_TO_MS
 PLANNER_FLOOR_SHADOW_DEFICIT = 7.5 * CV.MPH_TO_MS
+PLANNER_FLOOR_LIVE_DEFICIT = 7.5 * CV.MPH_TO_MS
+PLANNER_FLOOR_LIVE_ACCEL = 0.42
+PLANNER_FLOOR_LIVE_MIN_ATARGET = 0.0
 MAX_LATERAL_ACCEL_FOR_ASSIST = 0.70
 MAX_SCC_PREDICTED_LATERAL_ACCEL_FOR_ASSIST = 1.20
 CURVE_SOFT_DECAY_LATERAL_ACCEL = 0.377
@@ -324,9 +327,16 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                               speed_deficit >= MIN_CATCHUP_SPEED_DEFICIT)
   planner_floor_shadow_candidate = bool(clean_shadow_context and speed_deficit >= PLANNER_FLOOR_SHADOW_DEFICIT and
                                         (a_target < MIN_POSITIVE_PLANNER_ACCEL or not getattr(long_plan, "allowThrottle", True)))
+  planner_floor_live_candidate = bool(planner_floor_shadow_candidate and
+                                      getattr(long_plan, "allowThrottle", True) and
+                                      a_target >= PLANNER_FLOOR_LIVE_MIN_ATARGET and
+                                      speed_deficit >= PLANNER_FLOOR_LIVE_DEFICIT)
 
   hard_suppressors = suppressors & ~SOFT_HOLD_SUPPRESSORS
   soft_suppressors = suppressors & SOFT_HOLD_SUPPRESSORS
+  if planner_floor_live_candidate:
+    soft_suppressors &= ~(BrickpilotLongitudinalSuppressor.PLANNER_NOT_POSITIVE |
+                          BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL)
   prev_hold_timer = max(0.0, _safe_float(getattr(prev_state, "hold_timer", 0.0))) if prev_state is not None else 0.0
   prev_hold_target = _safe_float(getattr(prev_state, "hold_target", 0.0), a_target) if prev_state is not None else a_target
   hold_dt = max(0.0, min(_safe_float(dt, 0.05), 0.20))
@@ -349,7 +359,9 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              lead_distance=lead_distance, lead_closing=lead_closing)
 
   deficit_mph_over = max(0.0, (speed_deficit - MIN_CATCHUP_SPEED_DEFICIT) / CV.MPH_TO_MS)
-  lag_over = max(0.0, accel_lag - MIN_ACCEL_LAG)
+  floor_target = max(a_target, PLANNER_FLOOR_LIVE_ACCEL) if planner_floor_live_candidate else a_target
+  effective_accel_lag = max(accel_lag, floor_target - a_ego)
+  lag_over = max(0.0, effective_accel_lag - MIN_ACCEL_LAG)
   assist_delta = min(MAX_ASSIST_DELTA,
                      max(MIN_ASSIST_DELTA,
                          DEFICIT_ASSIST_COEFF_PER_MPH * deficit_mph_over +
@@ -361,6 +373,8 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   # PID output limits, but the assisted target itself must never exceed the
   # explicit Brickpilot delta cap relative to the planner target.
   base_target = a_target + assist_delta
+  if planner_floor_live_candidate:
+    base_target = max(base_target, floor_target)
   if held_activation:
     base_target = a_target + max(0.0, prev_hold_target - a_target) * BRICKPILOT_HOLD_DECAY
 

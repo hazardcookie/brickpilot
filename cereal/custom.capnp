@@ -436,7 +436,7 @@ struct BackupManagerSP @0xf98d843bfd7004a3 {
 struct CarStateSP @0xb86e6369214c01c8 {
   speedLimit @0 :Float32;
 
-  # Brickpilot 0.4.0-beta read-only PHEV CAN candidate logger.
+  # Brickpilot 0.4.x read-only PHEV CAN candidate logger.
   #
   # Candidate present/update mask bits:
   # 0=0x0FA, 1=0x0E0, 2=0x0BA, 3=0x065, 4=0x10A,

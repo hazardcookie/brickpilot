@@ -76,7 +76,7 @@ class CarController(CarControllerBase, EsccCarController, LeadDataCarController,
 
   @staticmethod
   def get_tucson_canfd_apply_steer_req(CC, CS, apply_steer_req: bool) -> bool:
-    # 0.4.0-beta restores normal Hyundai steering behavior: no extra Tucson
+    # 0.4.x restores normal Hyundai steering behavior: no extra Tucson
     # CAN-FD MADS angle latch or steer-fault cooldown beyond common_fault_avoidance.
     return apply_steer_req
 

@@ -45,7 +45,7 @@ class TestTucsonCanFdMadsGating:
   def test_tucson_guard_restores_normal_upstream_request_state(self):
     controller = self.controller()
 
-    # The old local guard suppressed immediately here. 0.4.0-beta keeps only
+    # The old local guard suppressed immediately here. 0.4.x keeps only
     # the upstream common_fault_avoidance result that was passed in.
     assert controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(angle=MAX_ANGLE), True)
     assert controller.get_tucson_canfd_apply_steer_req(self.car_control(enabled=True), self.car_state(steer_fault=True), True)
