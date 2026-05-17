@@ -1,3 +1,13 @@
+## Brickpilot Project Notes
+
+Brickpilot is a private 2022 Hyundai Tucson PHEV research fork built on
+sunnypilot/openpilot. For the Brickpilot-specific release history and project
+positioning, see:
+
+- [CHANGELOG.md](CHANGELOG.md)
+- [BRICKPILOT_DIFFERENCES.md](BRICKPILOT_DIFFERENCES.md)
+- [BRICKPILOT_REPO_BOUNDARY.md](BRICKPILOT_REPO_BOUNDARY.md)
+
 ![](https://user-images.githubusercontent.com/47793918/233812617-beab2e71-57b9-479e-8bff-c3931347ca40.png)
 
 ## 🌞 What is sunnypilot?

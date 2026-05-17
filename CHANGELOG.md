@@ -1,3 +1,136 @@
+# Brickpilot Changelog
+
+This section tracks Brickpilot-specific releases and must be updated whenever
+Brickpilot's visible version, live driving behavior, telemetry schema, or
+vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
+changelog is retained below for baseline context.
+
+## 0.4.1 - 2026-05-17
+
+Staging test build for the 2022 Hyundai Tucson PHEV.
+
+### Changed
+
+- Promoted the validation-data-backed planner-floor catch-up candidate into live
+  behavior. In clean Tucson CAN-FD cruise catch-up contexts with a large speed
+  deficit, Brickpilot may raise a weak planner acceleration request to a bounded
+  `0.42 m/s^2` floor before the usual longitudinal controller and vehicle safety
+  limits run.
+- Kept the 0.4.0 PHEV CAN runtime vetoes active. Brickpilot still suppresses the
+  catch-up assist during detected PHEV regen/brake activity or stationary/auto
+  hold state.
+- Kept normal Hyundai CAN-FD steering behavior restored. The previous extra
+  Tucson MADS high-angle latch and steer-fault cooldown remain removed; steering
+  request suppression is left to upstream `common_fault_avoidance`.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40100`.
+
+### Validation
+
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+- Covered by Hyundai PHEV candidate and Tucson MADS gating tests under
+  `opendbc_repo/opendbc/car/hyundai/tests/`.
+
+## 0.4.0-beta - 2026-05-17
+
+Private beta build created from the final pre-0.4.0 label-validation data.
+
+### Changed
+
+- Added the first live PHEV CAN-aware guard to Brickpilot longitudinal assist.
+  The assist refuses to add catch-up energy when candidate CAN signals indicate
+  regen/brake activity or stationary/auto hold state.
+- Used the strongest current PHEV candidates in live gating and logs:
+  `0x0FA` byte 4, `0x065` byte 9, and `0x0BA` byte 14, with the wider PHEV CAN
+  candidate set still logged for analysis.
+- Restored normal Hyundai CAN-FD steering behavior by removing the overly
+  aggressive Tucson-specific steering guard that latched off immediately at high
+  steering angle or during temporary steering-fault cooldown.
+- Expanded `brickpilotShadow` and `carStateSP` logging around PHEV runtime
+  candidates, assist suppressors, planner-floor candidates, and steering guard
+  shadow state.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40000`.
+
+### Validation
+
+- Added/updated tests for PHEV candidate parsing and restored Tucson MADS
+  steering gating behavior.
+
+## 0.3.30.0 - 2026-05-17
+
+Instrumentation build focused on PHEV CAN learning.
+
+### Changed
+
+- Added structured CarStateSP logging for the current Tucson PHEV CAN candidate
+  set: `0x0FA`, `0x0E0`, `0x0BA`, `0x065`, `0x10A`, `0x120`, `0x1C5`, `0x310`,
+  `0x1A5`, and `0x06F`.
+- Logged both unsigned and signed interpretations where useful, including the
+  high-priority `0x0FA` byte 4 candidate on bus 0 and bus 130.
+- Added source/presence masks, frame update masks, selected bus/source
+  information, mirror consistency, and Hyundai hybrid-flag context to support
+  route-level analysis.
+- Added PHEV candidate tests so decoded candidate fields remain stable when
+  opendbc or CarState plumbing changes.
+
+### Validation
+
+- Intended for label-validation drives, not final control behavior. Live
+  longitudinal behavior remained essentially the conservative 0.3.x assist.
+
+## 0.3.25.0 - 2026-05-15
+
+Pre-0.4.0 telemetry and label-quality build.
+
+### Changed
+
+- Added the Brickpilot Tucson PHEV 0.4.0 audit/plan document to the core repo.
+- Expanded `controlsState.brickpilotShadow` with longitudinal assist internals:
+  vehicle scope, toggle state, active/shadow candidate state, suppressor bitmask,
+  version/candidate identifiers, base and assisted acceleration targets, assist
+  delta, hold timer/target, speed deficit, acceleration lag, lateral demand,
+  lead state, plan source, and throttle allowance.
+- Added shadow telemetry for the Tucson CAN-FD steering guard so route review can
+  tell whether high-angle or temporary-fault suppression is involved.
+- Upgraded on-device bookmark tags to schema v2 with drive, PHEV, and good-label
+  vocabulary suitable for the external labeler and ML tooling.
+- Kept bookmark tag storage outside route `realdata` under the sibling
+  `brickpilot/bookmark_tags.jsonl` path unless explicitly overridden.
+
+### Validation
+
+- This release intentionally emphasized better data and labels before promoting
+  new live controls.
+
+## 0.3.20.0 - 2026-05-15
+
+Split-repo transition/versioning build.
+
+### Changed
+
+- Bumped comma-visible Brickpilot branding/version in `system/version.py`.
+- Kept the core repo focused on on-device driving software after moving
+  off-device DriveDB, ML, ingest, local UI, and operations workflows into sibling
+  repos.
+- Restored native sunnypilot/openpilot build and runtime files needed for a
+  complete source tree.
+
+## 0.3.16.0 - 2026-05-15
+
+Core source snapshot that became the cleaned Brickpilot driving repo.
+
+### Changed
+
+- Imported the Brickpilot core source snapshot from the prior combined working
+  fork.
+- Pruned split-out local tools and generated operations artifacts from the
+  deployable driving repo.
+- Established the current repo boundary: driving code here, off-device data and
+  ML tooling in sibling repos, and route data under `/Users/brick/BrickpilotDriveDB`.
+
+## Inherited Upstream Changelog
+
 sunnypilot Version 2026.001.000 (2026-05-06)
 ========================
 * What's Changed (sunnypilot/sunnypilot)
