@@ -134,7 +134,7 @@ class LongitudinalPlanSP:
 
 @dataclass
 class CarStateSP:
-  brickpilotPhevCanLoggerVersion: int = 40100
+  brickpilotPhevCanLoggerVersion: int = 40200
   brickpilotPhevCanCandidatePresentMask: int = 0x1
   brickpilotPhevHybridFlagSet: bool = True
   brickpilotPhevFaB4U8: int = 0
@@ -153,16 +153,16 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_041_large_deficit_planner_floor_constants_are_promoted(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.1")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40100)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "ultimate_micro_frontier_174_final0008_j19_h1.769_dc0.475_md0.649")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3748461780)
-    self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 3.97 * 0.44704, places=5)
-    self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.649)
-    self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 1.766)
-    self.assertAlmostEqual(BRICKPILOT_HOLD_SECONDS, 1.769)
-    self.assertAlmostEqual(PLANNER_FLOOR_LIVE_ACCEL, 0.42)
+  def test_042_powerzone_planner_floor_constants_are_promoted(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.2")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40200)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_042_powerzone_midsteer_j20_h2.050_dc0.550_md0.740")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 1665532451)
+    self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 3.0 * 0.44704, places=5)
+    self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.740)
+    self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 1.950)
+    self.assertAlmostEqual(BRICKPILOT_HOLD_SECONDS, 2.050)
+    self.assertAlmostEqual(PLANNER_FLOOR_LIVE_ACCEL, 0.56)
 
   def test_scope_is_tucson_canfd_openpilot_long_only(self):
     self.assertTrue(is_brickpilot_tucson_phev_scope(CP()))
@@ -182,11 +182,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertEqual(state.hold_target, state.assisted_a_target)
 
   def test_lower_accel_limit_does_not_inflate_assist_delta(self):
-    state = self.run_assist(accel_limits=(1.20, 2.0))
+    state = self.run_assist(accel_limits=(1.40, 2.0))
     self.assertTrue(state.active)
     self.assertLessEqual(state.assist_delta, MAX_ASSIST_DELTA)
     self.assertLessEqual(state.assisted_a_target, state.a_target + MAX_ASSIST_DELTA)
-    self.assertLess(state.assisted_a_target, 1.20)
+    self.assertLess(state.assisted_a_target, 1.40)
 
   def test_large_clean_deficit_promotes_live_planner_floor(self):
     state = self.run_assist(plan=LongPlan(aTarget=0.10, speeds=[20.0, 23.5, 25.0, 27.0]))
@@ -217,8 +217,8 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertEqual(state.assisted_a_target, state.a_target)
 
   def test_short_non_safety_planner_gap_holds_only_after_clean_activation(self):
-    gap_plan = LongPlan(aTarget=0.10, speeds=[20.0, 21.8, 22.4, 23.0])
-    gap_cs = CS(vCruise=81.0)
+    gap_plan = LongPlan(aTarget=0.10, speeds=[20.0, 20.8, 21.0])
+    gap_cs = CS(vCruise=77.0)
 
     first_gap = self.run_assist(cs=gap_cs, plan=gap_plan)
     self.assertFalse(first_gap.active)
@@ -306,7 +306,7 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
       (dict(radar=RadarState(Lead(status=True, dRel=90.0, vRel=0.0))), BrickpilotLongitudinalSuppressor.LEAD_PRESENT_OR_LIMITING),
       (dict(curvature=0.004), BrickpilotLongitudinalSuppressor.HIGH_LATERAL_DEMAND),
       (dict(cs=CS(vCruise=75.0), plan=LongPlan(speeds=[20.0, 20.5])), BrickpilotLongitudinalSuppressor.NO_CATCHUP_DEMAND),
-      (dict(cs=CS(aEgo=0.35)), BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL),
+      (dict(cs=CS(aEgo=0.45)), BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL),
     ]
     for kwargs, suppressor in cases:
       with self.subTest(suppressor=suppressor):

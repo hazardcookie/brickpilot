@@ -11,9 +11,10 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.values import CAR, HyundaiFlags
 
 
-TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED = 20 * CV.MPH_TO_MS
-TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 35 * CV.MPH_TO_MS
-TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.25
+TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED = 26 * CV.MPH_TO_MS
+TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 50 * CV.MPH_TO_MS
+TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.20
+TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 0.70
 TUCSON_CANFD_TORQUE_TEXTURE_DRIVER_OVERRIDE_COOLDOWN_FRAMES = 25
 
 
@@ -32,9 +33,10 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
   def apply_tucson_canfd_low_speed_torque_smoothing(self, CS, output_torque: float) -> float:
     # Brickpilot Tucson steering-texture candidate: smooth controller output
     # before stock CAN-FD safety/rate limits rather than lowering those limits.
-    # This is Tucson-scoped and only active in low-speed turn territory where
-    # Dan reports multi-step jerky corrections; it resets on driver steering
-    # and above the smoothing band so handoff/override behavior remains raw.
+    # 0.4.2 extends the band into normal suburban speeds and damps sharp torque
+    # reversals, which are the route-review shape behind many jerk/ping-pong
+    # labels. It still resets on driver steering and fades to raw torque above
+    # the experiment band.
     is_tucson_canfd = bool(self.CP.flags & HyundaiFlags.CANFD and
                            self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN)
     if not is_tucson_canfd or CS.vEgo >= TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED:
@@ -63,6 +65,9 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
                      (TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED - TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED))
 
     alpha = 1.0 - speed_blend * (1.0 - TUCSON_CANFD_TORQUE_TEXTURE_ALPHA)
+    if output_torque * self.tucson_canfd_output_torque_smooth < 0.0 and abs(output_torque - self.tucson_canfd_output_torque_smooth) > 0.35:
+      alpha *= TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE
+
     self.tucson_canfd_output_torque_smooth += alpha * (output_torque - self.tucson_canfd_output_torque_smooth)
     return self.tucson_canfd_output_torque_smooth
 

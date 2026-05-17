@@ -5,6 +5,34 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.2 - 2026-05-17
+
+Staging test build for the second 0.4.x road iteration on the 2022 Hyundai
+Tucson PHEV.
+
+### Changed
+
+- Kept the 0.4.1 longitudinal catch-up assist and made it more likely to affect
+  real test-drive behavior. Clean cruise catch-up sections now use a lower
+  speed-deficit threshold, a stronger `0.56 m/s^2` planner floor, a higher
+  bounded assist delta, and a slightly longer hold.
+- Preserved the PHEV runtime vetoes around regen/brake and stationary/auto-hold
+  signals, plus the existing driver, lead, stop, lateral-demand, FCW, model, and
+  sunnypilot plan suppressors.
+- Expanded Tucson CAN-FD torque texture smoothing from low-speed-only behavior
+  into normal suburban steering speeds. It now fully smooths below 26 mph,
+  fades to raw torque by 50 mph, and adds extra damping on fast torque
+  reversals before stock Hyundai CAN-FD safety/rate limits run.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40200`.
+
+### Validation
+
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by Hyundai PHEV candidate tests under
+  `opendbc_repo/opendbc/car/hyundai/tests/`.
+
 ## 0.4.1 - 2026-05-17
 
 Staging test build for the 2022 Hyundai Tucson PHEV.

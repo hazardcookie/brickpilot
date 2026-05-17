@@ -85,17 +85,22 @@ PHEV regen/brake activity, or stationary/auto-hold state.
 
 In 0.4.1, Brickpilot promoted one data-backed change: a large clean speed
 deficit can raise a weak planner acceleration request to a bounded
-`0.42 m/s^2` floor. This should make the car behave differently on test drives,
-especially where the planner is too timid while cruise is set and the road is
-straight enough.
+`0.42 m/s^2` floor.
+
+In 0.4.2, Brickpilot made that experiment more visible on road: the clean
+catch-up threshold is lower, the live floor is `0.56 m/s^2`, the bounded assist
+delta is larger, and the short hold lasts longer. The intent is to collect
+clearer data on whether the Tucson PHEV needs more energy in straight cruise
+catch-up sections, not to bypass any inherited control or safety layer.
 
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
 sunnypilot torque extension path:
 
-- Full smoothing below 20 mph.
-- Fade-out to no smoothing by 35 mph.
+- Full smoothing below 26 mph.
+- Fade-out to no smoothing by 50 mph.
+- Extra damping on fast torque reversals.
 - Reset on driver steering override.
 - Applied before stock CAN-FD safety and rate limits.
 
