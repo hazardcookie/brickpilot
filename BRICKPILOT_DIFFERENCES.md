@@ -107,6 +107,13 @@ ExperimentalMode/e2e can now receive a bounded high-speed catch-up bridge above
 meant to create materially different data on entry ramps and exp-mode catch-up
 without adding energy into stop, lead, braking, regen, or auto-hold contexts.
 
+In 0.4.5, Brickpilot keeps the 0.4.4 longitudinal behavior and changes steering
+texture based on the 2M VM replay sweep winner `road100k_1292674`. The promoted
+candidate is causal and road-budgeted: two-stage output smoothing, mild torque
+scale-down, weak zero-cross/reversal hold, and no Hyundai safety/rate-limit
+changes. The intent is to make the steering feel clearly different so the next
+test drive can compare blocky wheel texture against 0.4.4 directly.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
@@ -117,6 +124,9 @@ sunnypilot torque extension path:
 - Extra damping on fast torque reversals, stronger in 0.4.4.
 - Brief center hold on weak low-speed torque zero-crossings in 0.4.3, extended
   in 0.4.4.
+- 0.4.5 replaces the 0.4.4 shape with the 2M sweep winner: stronger causal
+  two-stage smoothing below the existing 62 mph cutoff, mild output scale-down,
+  and a short reversal hold after weak zero-crossings.
 - Reset on driver steering override.
 - Applied before stock CAN-FD safety and rate limits.
 

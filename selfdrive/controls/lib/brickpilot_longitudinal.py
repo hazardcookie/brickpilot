@@ -54,11 +54,10 @@ class BrickpilotLongitudinalAssistState:
   lead_closing: bool = False
 
 
-# Brickpilot 0.4.4 promotes the offline sweep winner shape: wider clean cruise
-# catch-up plus a high-speed e2e/experimental source bridge with the same hard
-# stop, lead, brake, regen, auto-hold, and driver vetoes.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.4.4"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40400
+# Brickpilot 0.4.5 keeps the 0.4.4 longitudinal policy and promotes the 2M VM
+# replay road-budget steering smoother into the Tucson CAN-FD torque extension.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.4.5"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40500
 ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_044_expbridge_rampplus_h2.050_dc0.550_md0.980_rd1.080_ed0.820"
 ULTIMATE_100K_CANDIDATE_HASH = 1889804744
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000

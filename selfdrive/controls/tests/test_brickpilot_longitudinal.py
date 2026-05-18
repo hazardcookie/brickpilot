@@ -155,9 +155,9 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_044_expbridge_rampplus_constants_are_promoted(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.4")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40400)
+  def test_045_keeps_expbridge_rampplus_constants_promoted(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.5")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40500)
     self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_044_expbridge_rampplus_h2.050_dc0.550_md0.980_rd1.080_ed0.820")
     self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 1889804744)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)

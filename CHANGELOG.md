@@ -5,6 +5,29 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.5 - 2026-05-18
+
+Staging test build promoted from the 2M VM replay steering variant sweep.
+
+### Changed
+
+- Promoted top road-budget steering candidate `road100k_1292674` into the
+  Tucson CAN-FD torque extension.
+- Replaced the 0.4.4 single-stage texture smoother with a causal two-stage
+  smoother: low first-stage alpha, second-stage alpha `0.366`, mild output
+  scale `0.910`, weak zero-cross detection, and a 3-frame reversal hold.
+- Kept Hyundai CAN-FD safety/rate limits unchanged and kept the existing
+  non-Tucson, high-speed, and driver-steering bypasses.
+- Kept the 0.4.4 longitudinal policy unchanged for this build so the road test
+  isolates the 2M steering candidate against the prior catch-up behavior.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40500`.
+
+### Validation
+
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+
 ## 0.4.4 - 2026-05-18
 
 Staging test build promoted from the 0.4.x offline longitudinal policy sweep.

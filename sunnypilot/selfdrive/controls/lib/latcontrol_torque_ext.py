@@ -11,14 +11,20 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.values import CAR, HyundaiFlags
 
 
-TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED = 34 * CV.MPH_TO_MS
+# Brickpilot 0.4.5 promotes the 2M VM replay road-budget winner
+# `road100k_1292674`: a causal two-stage output smoother with mild torque
+# scale-down, weak zero-cross/reversal hold, and no actuator safety changes.
 TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 62 * CV.MPH_TO_MS
-TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.16
-TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 0.50
+TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.03902918761437625
+TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 1.0819474180716206
 TUCSON_CANFD_TORQUE_TEXTURE_DRIVER_OVERRIDE_COOLDOWN_FRAMES = 25
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES = 5
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW = 0.42
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_SMOOTH = 0.42
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES = 0
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW = 0.7749961302676802
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_SMOOTH = 0.5914052310071238
+TUCSON_CANFD_TORQUE_TEXTURE_SECOND_ALPHA = 0.3660354064883392
+TUCSON_CANFD_TORQUE_TEXTURE_DEADBAND = 0.00776856972670068
+TUCSON_CANFD_TORQUE_TEXTURE_SCALE = 0.9097904138040023
+TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_HOLD_FRAMES = 3
 
 
 class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverride):
@@ -27,20 +33,21 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
     LatControlTorqueExtOverride.__init__(self, CP)
     self.tucson_canfd_output_torque_smoothing_initialized = False
     self.tucson_canfd_output_torque_smooth = 0.0
+    self.tucson_canfd_output_torque_second_smooth = 0.0
     self.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
     self.tucson_canfd_output_torque_zero_cross_hold = 0
+    self.tucson_canfd_output_torque_reversal_hold = 0
 
   def reset_tucson_canfd_low_speed_torque_smoothing(self) -> None:
     self.tucson_canfd_output_torque_smoothing_initialized = False
     self.tucson_canfd_output_torque_smooth = 0.0
+    self.tucson_canfd_output_torque_second_smooth = 0.0
     self.tucson_canfd_output_torque_zero_cross_hold = 0
+    self.tucson_canfd_output_torque_reversal_hold = 0
 
   def apply_tucson_canfd_low_speed_torque_smoothing(self, CS, output_torque: float) -> float:
     # Brickpilot Tucson steering-texture candidate: smooth controller output
     # before stock CAN-FD safety/rate limits rather than lowering those limits.
-    # 0.4.4 widens the smoothing band to normal suburban speeds and holds weak
-    # zero-crossings longer, targeting ping-pong texture without changing
-    # Hyundai CAN-FD safety/rate limits.
     is_tucson_canfd = bool(self.CP.flags & HyundaiFlags.CANFD and
                            self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN)
     if not is_tucson_canfd or CS.vEgo >= TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED:
@@ -58,38 +65,51 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
       self.reset_tucson_canfd_low_speed_torque_smoothing()
       return output_torque
 
+    scaled_torque = output_torque * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
+
+    if self.tucson_canfd_output_torque_reversal_hold > 0:
+      self.tucson_canfd_output_torque_reversal_hold -= 1
+      self.tucson_canfd_output_torque_smoothing_initialized = True
+      return self.tucson_canfd_output_torque_smooth
+
     if self.tucson_canfd_output_torque_zero_cross_hold > 0:
-      if abs(output_torque) <= TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW:
+      if abs(scaled_torque) <= TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW:
         self.tucson_canfd_output_torque_zero_cross_hold -= 1
         self.tucson_canfd_output_torque_smoothing_initialized = True
         self.tucson_canfd_output_torque_smooth = 0.0
+        self.tucson_canfd_output_torque_second_smooth = 0.0
         return 0.0
       self.tucson_canfd_output_torque_zero_cross_hold = 0
 
     if not self.tucson_canfd_output_torque_smoothing_initialized:
       self.tucson_canfd_output_torque_smoothing_initialized = True
-      self.tucson_canfd_output_torque_smooth = output_torque
-      return output_torque
+      self.tucson_canfd_output_torque_smooth = scaled_torque
+      self.tucson_canfd_output_torque_second_smooth = scaled_torque
+      return scaled_torque
 
-    speed_blend = 1.0
-    if CS.vEgo > TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED:
-      speed_blend = ((TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED - CS.vEgo) /
-                     (TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED - TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED))
-
-    alpha = 1.0 - speed_blend * (1.0 - TUCSON_CANFD_TORQUE_TEXTURE_ALPHA)
-    weak_zero_cross = bool(output_torque * self.tucson_canfd_output_torque_smooth < 0.0 and
-                           abs(output_torque) <= TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW and
+    weak_zero_cross = bool(scaled_torque * self.tucson_canfd_output_torque_smooth < 0.0 and
+                           abs(scaled_torque) <= TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW and
                            abs(self.tucson_canfd_output_torque_smooth) <= TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_SMOOTH)
     if weak_zero_cross:
       self.tucson_canfd_output_torque_zero_cross_hold = TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES
+      self.tucson_canfd_output_torque_reversal_hold = TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_HOLD_FRAMES
       self.tucson_canfd_output_torque_smooth = 0.0
+      self.tucson_canfd_output_torque_second_smooth = 0.0
       return 0.0
 
-    if output_torque * self.tucson_canfd_output_torque_smooth < 0.0 and abs(output_torque - self.tucson_canfd_output_torque_smooth) > 0.35:
+    alpha = TUCSON_CANFD_TORQUE_TEXTURE_ALPHA
+    if scaled_torque * self.tucson_canfd_output_torque_smooth < 0.0:
       alpha *= TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE
 
-    self.tucson_canfd_output_torque_smooth += alpha * (output_torque - self.tucson_canfd_output_torque_smooth)
-    return self.tucson_canfd_output_torque_smooth
+    next_value = self.tucson_canfd_output_torque_smooth + alpha * (scaled_torque - self.tucson_canfd_output_torque_smooth)
+    if abs(next_value) < TUCSON_CANFD_TORQUE_TEXTURE_DEADBAND and abs(scaled_torque) < TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW:
+      next_value = 0.0
+
+    self.tucson_canfd_output_torque_smooth = next_value
+    self.tucson_canfd_output_torque_second_smooth += TUCSON_CANFD_TORQUE_TEXTURE_SECOND_ALPHA * (
+      self.tucson_canfd_output_torque_smooth - self.tucson_canfd_output_torque_second_smooth
+    )
+    return self.tucson_canfd_output_torque_second_smooth
 
   def update(self, CS, VM, pid, params, ff, pid_log, setpoint, measurement, calibrated_pose, roll_compensation,
              desired_lateral_accel, actual_lateral_accel, lateral_accel_deadzone, gravity_adjusted_lateral_accel,

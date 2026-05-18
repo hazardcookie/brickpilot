@@ -21,7 +21,10 @@ fake_override = ModuleType("openpilot.sunnypilot.selfdrive.controls.lib.latcontr
 fake_override.LatControlTorqueExtOverride = FakeLatControlTorqueExtOverride
 sys.modules.setdefault("openpilot.sunnypilot.selfdrive.controls.lib.latcontrol_torque_ext_override", fake_override)
 
-from openpilot.sunnypilot.selfdrive.controls.lib.latcontrol_torque_ext import LatControlTorqueExt  # noqa: E402
+from openpilot.sunnypilot.selfdrive.controls.lib.latcontrol_torque_ext import (  # noqa: E402
+  LatControlTorqueExt,
+  TUCSON_CANFD_TORQUE_TEXTURE_SCALE,
+)
 
 
 def make_ext(car_fingerprint=CAR.HYUNDAI_TUCSON_4TH_GEN, flags=HyundaiFlags.CANFD):
@@ -29,8 +32,10 @@ def make_ext(car_fingerprint=CAR.HYUNDAI_TUCSON_4TH_GEN, flags=HyundaiFlags.CANF
   ext.CP = SimpleNamespace(carFingerprint=car_fingerprint, flags=flags)
   ext.tucson_canfd_output_torque_smoothing_initialized = False
   ext.tucson_canfd_output_torque_smooth = 0.0
+  ext.tucson_canfd_output_torque_second_smooth = 0.0
   ext.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
   ext.tucson_canfd_output_torque_zero_cross_hold = 0
+  ext.tucson_canfd_output_torque_reversal_hold = 0
   return ext
 
 
@@ -41,31 +46,30 @@ def car_state(speed_mph=10.0, steering_pressed=False):
 def test_tucson_canfd_low_speed_smoothing_reduces_fast_output_reversal():
   ext = make_ext()
 
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8) == 0.8
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8) == 0.8 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.8)
 
-  assert abs(smoothed - 0.672) < 1e-9
+  assert abs(smoothed - 0.7053324562065397) < 1e-9
 
 
-def test_smoothing_blends_out_between_34_and_62_mph():
+def test_smoothing_remains_active_at_suburban_speeds():
   ext = make_ext()
 
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=40.0), 0.8) == 0.8
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=40.0), 0.8) == 0.8 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=40.0), -0.8)
 
-  # At 40 mph the smoother is still active, and reversal damping drops alpha to 0.17.
-  assert abs(smoothed - 0.528) < 1e-9
+  assert abs(smoothed - 0.7053324562065397) < 1e-9
 
 
-def test_weak_zero_cross_holds_center_to_reduce_ping_pong_texture():
+def test_weak_zero_cross_reversal_hold_reduces_ping_pong_texture():
   ext = make_ext()
 
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.24) == 0.24
-  for _ in range(6):
-    assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.18) == 0.0
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.3) == 0.3 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
+  for _ in range(4):
+    assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.3) == 0.0
 
-  smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.18)
-  assert abs(smoothed + 0.0288) < 1e-9
+  smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.3)
+  assert abs(smoothed + 0.0038991973744835835) < 1e-9
 
 
 def test_smoothing_resets_for_driver_steering_and_inactive_lateral_control():
@@ -75,16 +79,17 @@ def test_smoothing_resets_for_driver_steering_and_inactive_lateral_control():
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(steering_pressed=True), -0.5) == -0.5
   assert not ext.tucson_canfd_output_torque_smoothing_initialized
   assert ext.tucson_canfd_output_torque_smooth == 0.0
+  assert ext.tucson_canfd_output_torque_second_smooth == 0.0
 
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.4) == 0.4
   assert not ext.tucson_canfd_output_torque_smoothing_initialized
 
   ext.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.4) == 0.4
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.4) == 0.4 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
 
   ext.reset_tucson_canfd_low_speed_torque_smoothing()
   assert not ext.tucson_canfd_output_torque_smoothing_initialized
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.4) == -0.4
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.4) == -0.4 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
 
 
 def test_driver_steering_bypasses_smoothing_briefly_after_release():
@@ -99,9 +104,9 @@ def test_driver_steering_bypasses_smoothing_briefly_after_release():
   for _ in range(24):
     assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.6) == -0.6
 
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.6) == 0.6
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.6) == 0.6 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.6)
-  assert abs(smoothed - 0.504) < 1e-9
+  assert abs(smoothed) < 1e-9
 
 
 def test_non_tucson_and_high_speed_paths_keep_raw_output_and_reset_smoothing():
@@ -114,10 +119,10 @@ def test_non_tucson_and_high_speed_paths_keep_raw_output_and_reset_smoothing():
   assert not non_canfd.tucson_canfd_output_torque_smoothing_initialized
 
   ext = make_ext()
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8) == 0.8
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8) == 0.8 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=65.0), -0.8) == -0.8
   assert not ext.tucson_canfd_output_torque_smoothing_initialized
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.5) == 0.5
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.5) == 0.5 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
 
 
 def test_tucson_canfd_keeps_stock_canfd_safety_slew_limits():
