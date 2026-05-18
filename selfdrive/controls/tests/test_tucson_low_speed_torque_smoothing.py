@@ -74,16 +74,16 @@ def test_weak_zero_cross_reversal_hold_reduces_ping_pong_texture():
   assert abs(smoothed + 0.003120823498970172) < 1e-9
 
 
-def test_center_return_path_unwinds_toward_smaller_same_direction_torque():
+def test_center_return_path_uses_natural_two_stage_glide():
   ext = make_ext()
 
   first = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8)
   second = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.4)
 
-  assert TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA > 0.10
+  assert TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA < 0.04
   assert second < first
   assert second > 0.4 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
-  assert abs(second - 0.7334530384452649) < 1e-9
+  assert abs(second - 0.7422257820013732) < 1e-9
 
 
 def test_smoothing_resets_for_driver_steering_and_inactive_lateral_control():

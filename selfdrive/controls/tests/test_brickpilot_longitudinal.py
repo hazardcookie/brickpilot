@@ -160,11 +160,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_046_promotes_fresh_replay_and_ramp_exp_constants(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.6")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40600)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_046_ramp4_exp5_centerreturn_damp140")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 4116247856)
+  def test_047_keeps_ramp_exp_behavior_and_marks_return_glide_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.7")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40700)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_047_ramp4_exp5_returnglide_damp140")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 4214335218)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)

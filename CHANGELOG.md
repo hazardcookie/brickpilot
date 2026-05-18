@@ -5,6 +5,34 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.7 - 2026-05-18
+
+Staging test build from a targeted return-to-center steering sweep over the
+post-0.4.6 replay corpus.
+
+### Changed
+
+- Kept the 0.4.6 longitudinal ramp/ExperimentalMode catch-up behavior unchanged
+  so the next road test isolates steering texture.
+- Removed the extra 0.4.6 fast center-return alpha from the Tucson CAN-FD
+  torque texture smoother. The targeted return-phase sweep ranked the natural
+  two-stage glide higher than the fast unwind branch for the wheel coming back
+  toward center.
+- Kept the 2M `road046s406_0886848` steering shape, bounded pre-safety torque
+  rate limiter, weak zero-cross hold, driver override bypass, high-speed bypass,
+  and scoped Tucson CAN-FD `Damping_Gain` value of `140`.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40700`.
+
+### Validation
+
+- Ran targeted return-to-center sweep over
+  `/Users/brick/BrickpilotDriveDB/analysis_exports/vm_controlsd_replay_steering_046_corpus/controlsd_series.csv`.
+- Top targeted candidate: `047_no_fast_return_anchor`, with return-rate p95
+  `0.851391` versus `1.090869` for the 0.4.6 fast-unwind branch.
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+
 ## 0.4.6 - 2026-05-18
 
 Staging test build from the fresh 0.4.x replay corpus, post-label CAN pass, and

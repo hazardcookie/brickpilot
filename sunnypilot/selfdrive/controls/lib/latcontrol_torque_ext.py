@@ -12,9 +12,10 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.values import CAR, HyundaiFlags
 
 
-# Brickpilot 0.4.6 promotes the fresh 35-segment/2M VM replay road-budget winner
-# `road046s406_0886848` and adds a small center-return unwind path for the
-# remaining stair-step feel observed when the wheel comes back toward center.
+# Brickpilot 0.4.7 keeps the 35-segment/2M VM replay road-budget winner
+# `road046s406_0886848` and removes the extra 0.4.6 fast unwind alpha. The
+# return-phase sweep scored the natural two-stage glide better for the wheel
+# coming back toward center, which is where the latest road labels clustered.
 TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 62 * CV.MPH_TO_MS
 TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.03699800
 TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 1.03118987
@@ -27,7 +28,7 @@ TUCSON_CANFD_TORQUE_TEXTURE_DEADBAND = 0.00838157
 TUCSON_CANFD_TORQUE_TEXTURE_SCALE = 0.93298360
 TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_HOLD_FRAMES = 2
 TUCSON_CANFD_TORQUE_TEXTURE_RATE_LIMIT_PER_SEC = 5.805189
-TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA = 0.115
+TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA = TUCSON_CANFD_TORQUE_TEXTURE_ALPHA
 TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_MAX_SMOOTH = 1.0
 
 

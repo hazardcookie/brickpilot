@@ -54,12 +54,12 @@ class BrickpilotLongitudinalAssistState:
   lead_closing: bool = False
 
 
-# Brickpilot 0.4.6 promotes the fresh 35-segment replay/2M sweep steering
-# winner and makes the 0.4.4 catch-up bridge easier to hit for ramp/exp tests.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.4.6"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40600
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_046_ramp4_exp5_centerreturn_damp140"
-ULTIMATE_100K_CANDIDATE_HASH = 4116247856
+# Brickpilot 0.4.7 keeps the proven 0.4.6 catch-up bridge and changes only the
+# Tucson CAN-FD lateral unwind texture so the next road test isolates steering.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.4.7"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40700
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_047_ramp4_exp5_returnglide_damp140"
+ULTIMATE_100K_CANDIDATE_HASH = 4214335218
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
