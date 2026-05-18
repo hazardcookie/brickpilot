@@ -93,6 +93,13 @@ delta is larger, and the short hold lasts longer. The intent is to collect
 clearer data on whether the Tucson PHEV needs more energy in straight cruise
 catch-up sections, not to bypass any inherited control or safety layer.
 
+In 0.4.3, Brickpilot separates two cases that looked similar to the labeler:
+accidental low-speed highway set-speed gaps and real interstate-ramp catch-up.
+Set-speed-only demand is capped below 32 mph, while clean no-lead merge-speed
+catch-up above 35 mph can use a stronger bounded assist delta. The intent is to
+test the specific entry-ramp problem without making local-road cruise-speed
+mistakes look like a valid acceleration request.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
@@ -101,6 +108,7 @@ sunnypilot torque extension path:
 - Full smoothing below 26 mph.
 - Fade-out to no smoothing by 50 mph.
 - Extra damping on fast torque reversals.
+- Brief center hold on weak low-speed torque zero-crossings in 0.4.3.
 - Reset on driver steering override.
 - Applied before stock CAN-FD safety and rate limits.
 

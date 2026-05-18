@@ -5,6 +5,35 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.3 - 2026-05-17
+
+Staging test build for the third 0.4.x road iteration on the 2022 Hyundai
+Tucson PHEV.
+
+### Changed
+
+- Added a ramp/merge-speed catch-up path for clean cruise acceleration. Above
+  35 mph with a large speed deficit, no lead, no driver override, no stop/brake
+  risk, low lateral demand, and the existing PHEV vetoes clear, Brickpilot may
+  use a higher bounded assist delta of `0.86 m/s^2`.
+- Split low-speed accidental set-speed gaps from real merge-speed demand. Below
+  32 mph, set-speed-only deficit is capped to 2 mph, so accidentally setting a
+  highway cruise speed on a local road does not by itself trigger live catch-up
+  assist.
+- Added Tucson CAN-FD weak zero-cross steering hold. Small low-speed torque
+  reversals are briefly held at center before the existing smoothing resumes,
+  targeting ping-pong texture while leaving stock Hyundai CAN-FD safety/rate
+  limits unchanged.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40300`.
+
+### Validation
+
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by Hyundai PHEV candidate tests under
+  `opendbc_repo/opendbc/car/hyundai/tests/`.
+
 ## 0.4.2 - 2026-05-17
 
 Staging test build for the second 0.4.x road iteration on the 2022 Hyundai

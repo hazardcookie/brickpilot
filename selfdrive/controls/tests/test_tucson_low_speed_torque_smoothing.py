@@ -30,6 +30,7 @@ def make_ext(car_fingerprint=CAR.HYUNDAI_TUCSON_4TH_GEN, flags=HyundaiFlags.CANF
   ext.tucson_canfd_output_torque_smoothing_initialized = False
   ext.tucson_canfd_output_torque_smooth = 0.0
   ext.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
+  ext.tucson_canfd_output_torque_zero_cross_hold = 0
   return ext
 
 
@@ -54,6 +55,19 @@ def test_smoothing_blends_out_between_26_and_50_mph():
 
   # At 30 mph the smoother is still active, and reversal damping drops alpha to 0.23333.
   assert abs(smoothed - 0.42666666666666675) < 1e-9
+
+
+def test_weak_zero_cross_holds_center_to_reduce_ping_pong_texture():
+  ext = make_ext()
+
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.24) == 0.24
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.18) == 0.0
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.18) == 0.0
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.18) == 0.0
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.18) == 0.0
+
+  smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.18)
+  assert abs(smoothed + 0.036) < 1e-9
 
 
 def test_smoothing_resets_for_driver_steering_and_inactive_lateral_control():

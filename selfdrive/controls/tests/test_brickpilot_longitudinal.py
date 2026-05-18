@@ -11,6 +11,7 @@ from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   MAX_ASSISTED_A_TARGET,
   MIN_CATCHUP_SPEED_DEFICIT,
   PLANNER_FLOOR_LIVE_ACCEL,
+  RAMP_CATCHUP_MAX_ASSIST_DELTA,
   ULTIMATE_100K_CANDIDATE_ID,
   ULTIMATE_100K_CANDIDATE_HASH,
   brickpilot_tucson_longitudinal_assist,
@@ -134,7 +135,7 @@ class LongitudinalPlanSP:
 
 @dataclass
 class CarStateSP:
-  brickpilotPhevCanLoggerVersion: int = 40200
+  brickpilotPhevCanLoggerVersion: int = 40300
   brickpilotPhevCanCandidatePresentMask: int = 0x1
   brickpilotPhevHybridFlagSet: bool = True
   brickpilotPhevFaB4U8: int = 0
@@ -153,13 +154,14 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_042_powerzone_planner_floor_constants_are_promoted(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.2")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40200)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_042_powerzone_midsteer_j20_h2.050_dc0.550_md0.740")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 1665532451)
+  def test_043_rampcatch_constants_are_promoted(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.3")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40300)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_043_rampcatch_zerocross_h2.050_dc0.550_md0.740_rd0.860")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 1186501177)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 3.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.740)
+    self.assertAlmostEqual(RAMP_CATCHUP_MAX_ASSIST_DELTA, 0.860)
     self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 1.950)
     self.assertAlmostEqual(BRICKPILOT_HOLD_SECONDS, 2.050)
     self.assertAlmostEqual(PLANNER_FLOOR_LIVE_ACCEL, 0.56)
@@ -182,7 +184,9 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertEqual(state.hold_target, state.assisted_a_target)
 
   def test_lower_accel_limit_does_not_inflate_assist_delta(self):
-    state = self.run_assist(accel_limits=(1.40, 2.0))
+    local_catchup = CS(vEgo=30.0 * 0.44704, vCruise=90.0)
+    plan = LongPlan(speeds=[30.0 * 0.44704, 34.0 * 0.44704, 37.0 * 0.44704])
+    state = self.run_assist(cs=local_catchup, plan=plan, accel_limits=(1.40, 2.0))
     self.assertTrue(state.active)
     self.assertLessEqual(state.assist_delta, MAX_ASSIST_DELTA)
     self.assertLessEqual(state.assisted_a_target, state.a_target + MAX_ASSIST_DELTA)
@@ -194,7 +198,7 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertTrue(state.planner_floor_shadow_candidate)
     self.assertIn(BrickpilotLongitudinalSuppressor.PLANNER_NOT_POSITIVE, state.suppressors)
     self.assertGreaterEqual(state.assisted_a_target, PLANNER_FLOOR_LIVE_ACCEL)
-    self.assertLessEqual(state.assist_delta, MAX_ASSIST_DELTA)
+    self.assertLessEqual(state.assist_delta, RAMP_CATCHUP_MAX_ASSIST_DELTA + 1e-9)
 
   def test_planner_floor_does_not_override_braking_planner(self):
     state = self.run_assist(plan=LongPlan(aTarget=-0.05, speeds=[20.0, 23.5, 25.0, 27.0]))
@@ -209,6 +213,27 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertTrue(state.planner_floor_shadow_candidate)
     self.assertIn(BrickpilotLongitudinalSuppressor.ALLOW_THROTTLE_FALSE, state.suppressors)
     self.assertEqual(state.assisted_a_target, state.a_target)
+
+  def test_low_speed_highway_set_speed_mistake_does_not_create_live_assist(self):
+    local_road = CS(vEgo=25.0 * 0.44704, vCruise=115.0)
+    weak_plan = LongPlan(aTarget=0.55, speeds=[25.0 * 0.44704, 25.5 * 0.44704])
+
+    state = self.run_assist(cs=local_road, plan=weak_plan)
+
+    self.assertFalse(state.active)
+    self.assertIn(BrickpilotLongitudinalSuppressor.NO_CATCHUP_DEMAND, state.suppressors)
+    self.assertEqual(state.assisted_a_target, state.a_target)
+
+  def test_merge_speed_set_speed_gap_gets_ramp_catchup_delta(self):
+    ramp = CS(vEgo=40.0 * 0.44704, vCruise=115.0)
+    weak_plan = LongPlan(aTarget=0.55, speeds=[40.0 * 0.44704, 41.0 * 0.44704])
+
+    state = self.run_assist(cs=ramp, plan=weak_plan)
+
+    self.assertTrue(state.active)
+    self.assertGreater(state.assist_delta, MAX_ASSIST_DELTA)
+    self.assertLessEqual(state.assist_delta, RAMP_CATCHUP_MAX_ASSIST_DELTA + 1e-9)
+    self.assertLessEqual(state.assisted_a_target, MAX_ASSISTED_A_TARGET)
 
   def test_far_low_lead_is_not_live_promoted_in_0396(self):
     state = self.run_assist(radar=RadarState(Lead(status=True, dRel=80.0, vRel=0.2)))
