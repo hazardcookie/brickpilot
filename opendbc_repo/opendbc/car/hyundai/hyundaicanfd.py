@@ -1,8 +1,11 @@
 import numpy as np
 from opendbc.car import CanBusBase
 from opendbc.car.crc import CRC16_XMODEM
-from opendbc.car.hyundai.values import HyundaiFlags
+from opendbc.car.hyundai.values import CAR, HyundaiFlags
 from opendbc.sunnypilot.car.hyundai.lead_data_ext import CanFdLeadData
+
+
+BRICKPILOT_TUCSON_CANFD_DAMPING_GAIN = 140
 
 
 class CanBus(CanBusBase):
@@ -37,6 +40,9 @@ class CanBus(CanBusBase):
 
 
 def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_torque, lkas_icon):
+  damping_gain = BRICKPILOT_TUCSON_CANFD_DAMPING_GAIN if (
+    CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN and CP.flags & HyundaiFlags.CANFD
+  ) else 100
   values = {
     "LKA_OptUsmSta": 2,
     "LKA_SysIndReq": lkas_icon,
@@ -45,7 +51,7 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_torque,
     "ActToiSta": 1 if lat_active else 0,
     "LKA_UsmMod": 0,  # hide LKAS settings
     "LKA_RcgSta": 0,
-    "Damping_Gain": 100,  # can potentially tuned for better perf [3, 200]
+    "Damping_Gain": damping_gain,  # can potentially tuned for better perf [3, 200]
   }
 
   ret = []

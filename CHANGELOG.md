@@ -5,6 +5,42 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.6 - 2026-05-18
+
+Staging test build from the fresh 0.4.x replay corpus, post-label CAN pass, and
+2M steering sweep.
+
+### Changed
+
+- Promoted fresh 2M road-budget steering candidate `road046s406_0886848` from a
+  35-segment VM replay corpus covering the recent 0.4.x test routes.
+- Added a center-return unwind path to the Tucson CAN-FD torque texture smoother
+  to target the remaining stair-step feel observed as the wheel returns toward
+  center after a curve.
+- Added the sweep winner's bounded pre-safety torque rate limiter and longer
+  weak zero-cross hold while preserving driver override, high-speed, and
+  non-Tucson bypasses.
+- Raised Tucson CAN-FD steering-command `Damping_Gain` from stock `100` to
+  scoped Brickpilot value `140` for this platform only.
+- Made the 0.4.4 catch-up bridge easier to exercise in limited testing:
+  set-speed deficit uncaps above `30 mph`, ramp deficit threshold drops to
+  `4.0 mph`, ramp assist bonus rises to `0.260`, and the ExperimentalMode/e2e
+  bridge can start above `30 mph` with `5.0 mph` of deficit, capped at
+  `0.86 m/s^2`.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40600`.
+
+### Validation
+
+- Replayed 35 recent 0.4.x segments through the VM controlsd harness with no
+  failures before selecting candidates.
+- Ran a fresh `2,000,000` candidate steering sweep against that corpus and kept
+  the 0.4.5 winner as an anchor for ranking.
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+- Covered by
+  `opendbc_repo/opendbc/car/hyundai/tests/test_tucson_canfd_damping_gain.py`.
+
 ## 0.4.5 - 2026-05-18
 
 Staging test build promoted from the 2M VM replay steering variant sweep.

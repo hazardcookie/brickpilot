@@ -114,6 +114,17 @@ scale-down, weak zero-cross/reversal hold, and no Hyundai safety/rate-limit
 changes. The intent is to make the steering feel clearly different so the next
 test drive can compare blocky wheel texture against 0.4.4 directly.
 
+In 0.4.6, Brickpilot uses the newest 0.4.x road data instead of only retuning the
+previous build. A fresh 35-segment VM replay corpus and 2M road-budget sweep
+promote `road046s406_0886848`; the live steering path also adds explicit
+center-return unwind smoothing because the latest road feedback narrowed the
+remaining blocky feel to curve exit and wheel return-to-center. For a separate
+felt change, the Tucson CAN-FD steering command uses a scoped `Damping_Gain` of
+`140` on this platform only. Longitudinal catch-up is also easier to exercise:
+set-speed deficit uncaps above 30 mph, the ramp deficit threshold and
+ExperimentalMode/e2e bridge thresholds are lower, while the same lead, stop,
+brake, regen, auto-hold, and override vetoes remain hard.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
@@ -127,6 +138,9 @@ sunnypilot torque extension path:
 - 0.4.5 replaces the 0.4.4 shape with the 2M sweep winner: stronger causal
   two-stage smoothing below the existing 62 mph cutoff, mild output scale-down,
   and a short reversal hold after weak zero-crossings.
+- 0.4.6 promotes the next 2M sweep winner, adds center-return unwind smoothing,
+  adds the candidate's bounded pre-safety torque rate limiter, and lengthens the
+  weak zero-cross hold for low-amplitude reversals.
 - Reset on driver steering override.
 - Applied before stock CAN-FD safety and rate limits.
 
