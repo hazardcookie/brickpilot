@@ -5,6 +5,41 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.4 - 2026-05-18
+
+Staging test build promoted from the 0.4.x offline longitudinal policy sweep.
+
+### Changed
+
+- Added an offline qlog/shadow-sample candidate sweep in the tools repo and
+  promoted the best installable shape into Brickpilot: wider clean cruise
+  catch-up plus a high-speed experimental/e2e source bridge.
+- Lowered the clean catch-up demand threshold, lowered the accel-lag gate,
+  raised the planner floor to `0.72 m/s^2`, and raised the bounded no-exp cruise
+  assist delta to `0.98 m/s^2`.
+- Replaced the narrow 0.4.3 ramp path with a stronger ramp/merge path. Clean
+  no-lead ramp catch-up can now trigger above 24 mph with at least 4.5 mph of
+  deficit and use up to `1.08 m/s^2` of bounded assist delta.
+- Added a new high-speed e2e/ExperimentalMode bridge. It can add bounded catch-up
+  assist only above 32 mph with at least 6 mph of speed deficit and low lateral
+  demand, capped at `0.82 m/s^2`.
+- Kept the hard vetoes hard: invalid vehicle, inactive longitudinal, stop/creep,
+  driver override, lead or lead-source plan, FCW/model brake, radar/model
+  mismatch, DEC/SCC/map turn risk, high predicted lateral demand, PHEV
+  regen/brake, and PHEV stationary/auto-hold.
+- Widened Tucson CAN-FD torque texture smoothing to normal suburban speeds:
+  full smoothing below 34 mph, fade-out by 62 mph, stronger reversal damping,
+  and a longer weak zero-cross hold.
+- Bumped Brickpilot brand/version metadata and longitudinal/PHEV logger version
+  code to `40400`.
+
+### Validation
+
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by Hyundai PHEV candidate tests under
+  `opendbc_repo/opendbc/car/hyundai/tests/`.
+
 ## 0.4.3 - 2026-05-17
 
 Staging test build for the third 0.4.x road iteration on the 2022 Hyundai

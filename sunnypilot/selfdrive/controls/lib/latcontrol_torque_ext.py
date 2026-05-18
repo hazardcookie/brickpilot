@@ -11,14 +11,14 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.values import CAR, HyundaiFlags
 
 
-TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED = 26 * CV.MPH_TO_MS
-TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 50 * CV.MPH_TO_MS
-TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.20
-TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 0.70
+TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED = 34 * CV.MPH_TO_MS
+TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 62 * CV.MPH_TO_MS
+TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.16
+TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 0.50
 TUCSON_CANFD_TORQUE_TEXTURE_DRIVER_OVERRIDE_COOLDOWN_FRAMES = 25
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES = 3
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW = 0.34
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_SMOOTH = 0.34
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES = 5
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW = 0.42
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_SMOOTH = 0.42
 
 
 class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverride):
@@ -38,8 +38,8 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
   def apply_tucson_canfd_low_speed_torque_smoothing(self, CS, output_torque: float) -> float:
     # Brickpilot Tucson steering-texture candidate: smooth controller output
     # before stock CAN-FD safety/rate limits rather than lowering those limits.
-    # 0.4.3 keeps the 0.4.2 wider speed band and adds a small zero-crossing
-    # hold for weak reversals, which targets ping-pong texture without changing
+    # 0.4.4 widens the smoothing band to normal suburban speeds and holds weak
+    # zero-crossings longer, targeting ping-pong texture without changing
     # Hyundai CAN-FD safety/rate limits.
     is_tucson_canfd = bool(self.CP.flags & HyundaiFlags.CANFD and
                            self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN)

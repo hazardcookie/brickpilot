@@ -7,6 +7,7 @@ from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   BRICKPILOT_LONGITUDINAL_VERSION,
   BRICKPILOT_LONGITUDINAL_VERSION_CODE,
   BrickpilotLongitudinalSuppressor,
+  EXP_SOURCE_MAX_ASSIST_DELTA,
   MAX_ASSIST_DELTA,
   MAX_ASSISTED_A_TARGET,
   MIN_CATCHUP_SPEED_DEFICIT,
@@ -135,7 +136,7 @@ class LongitudinalPlanSP:
 
 @dataclass
 class CarStateSP:
-  brickpilotPhevCanLoggerVersion: int = 40300
+  brickpilotPhevCanLoggerVersion: int = 40400
   brickpilotPhevCanCandidatePresentMask: int = 0x1
   brickpilotPhevHybridFlagSet: bool = True
   brickpilotPhevFaB4U8: int = 0
@@ -154,17 +155,18 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_043_rampcatch_constants_are_promoted(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.3")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40300)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_043_rampcatch_zerocross_h2.050_dc0.550_md0.740_rd0.860")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 1186501177)
-    self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 3.0 * 0.44704, places=5)
-    self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.740)
-    self.assertAlmostEqual(RAMP_CATCHUP_MAX_ASSIST_DELTA, 0.860)
-    self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 1.950)
+  def test_044_expbridge_rampplus_constants_are_promoted(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.4")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40400)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_044_expbridge_rampplus_h2.050_dc0.550_md0.980_rd1.080_ed0.820")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 1889804744)
+    self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
+    self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)
+    self.assertAlmostEqual(RAMP_CATCHUP_MAX_ASSIST_DELTA, 1.080)
+    self.assertAlmostEqual(EXP_SOURCE_MAX_ASSIST_DELTA, 0.820)
+    self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 2.000)
     self.assertAlmostEqual(BRICKPILOT_HOLD_SECONDS, 2.050)
-    self.assertAlmostEqual(PLANNER_FLOOR_LIVE_ACCEL, 0.56)
+    self.assertAlmostEqual(PLANNER_FLOOR_LIVE_ACCEL, 0.72)
 
   def test_scope_is_tucson_canfd_openpilot_long_only(self):
     self.assertTrue(is_brickpilot_tucson_phev_scope(CP()))
@@ -235,6 +237,27 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertLessEqual(state.assist_delta, RAMP_CATCHUP_MAX_ASSIST_DELTA + 1e-9)
     self.assertLessEqual(state.assisted_a_target, MAX_ASSISTED_A_TARGET)
 
+  def test_e2e_high_deficit_bridge_gets_live_bounded_assist(self):
+    ramp = CS(vEgo=45.0 * 0.44704, vCruise=115.0)
+    e2e_plan = LongPlan(aTarget=0.10, longitudinalPlanSource="e2e",
+                        speeds=[45.0 * 0.44704, 47.0 * 0.44704])
+
+    state = self.run_assist(cs=ramp, plan=e2e_plan)
+
+    self.assertTrue(state.active)
+    self.assertNotIn(BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE, state.suppressors)
+    self.assertLessEqual(state.assist_delta, EXP_SOURCE_MAX_ASSIST_DELTA + 1e-9)
+    self.assertGreaterEqual(state.assisted_a_target, PLANNER_FLOOR_LIVE_ACCEL)
+
+  def test_e2e_bridge_keeps_low_speed_or_weak_deficit_shadow_only(self):
+    weak_e2e = LongPlan(longitudinalPlanSource="e2e", speeds=[20.0, 20.5])
+    local = CS(vEgo=25.0 * 0.44704, vCruise=75.0)
+
+    state = self.run_assist(cs=local, plan=weak_e2e)
+
+    self.assertFalse(state.active)
+    self.assertIn(BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE, state.suppressors)
+
   def test_far_low_lead_is_not_live_promoted_in_0396(self):
     state = self.run_assist(radar=RadarState(Lead(status=True, dRel=80.0, vRel=0.2)))
     self.assertFalse(state.active)
@@ -242,8 +265,8 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertEqual(state.assisted_a_target, state.a_target)
 
   def test_short_non_safety_planner_gap_holds_only_after_clean_activation(self):
-    gap_plan = LongPlan(aTarget=0.10, speeds=[20.0, 20.8, 21.0])
-    gap_cs = CS(vCruise=77.0)
+    gap_plan = LongPlan(aTarget=0.10, speeds=[20.0, 20.4, 20.6])
+    gap_cs = CS(vCruise=74.0)
 
     first_gap = self.run_assist(cs=gap_cs, plan=gap_plan)
     self.assertFalse(first_gap.active)
@@ -273,7 +296,7 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
       (LongitudinalPlanSP(), BrickpilotLongitudinalSuppressor.SUNNYPILOT_PLAN_INVALID),
     ]
     for plan_sp, suppressor in cases:
-      with self.subTest(suppressor=suppressor):
+      with self.subTest(suppressor=int(suppressor)):
         state = self.run_assist(plan_sp=plan_sp, plan_sp_valid=suppressor != BrickpilotLongitudinalSuppressor.SUNNYPILOT_PLAN_INVALID)
         self.assertFalse(state.active)
         self.assertIn(suppressor, state.suppressors)
@@ -322,7 +345,9 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
       (dict(model_v2=ModelV2(meta=Meta(hardBrakePredicted=True))), BrickpilotLongitudinalSuppressor.FCW_OR_MODEL_BRAKE),
       (dict(model_v2=ModelV2(meta=Meta(disengagePredictions=Predictions(brake4MetersPerSecondSquaredProbs=[0.2])))), BrickpilotLongitudinalSuppressor.FCW_OR_MODEL_BRAKE),
       (dict(model_v2=ModelV2(leadsV3=[ModelLead(prob=0.8, x=[25.0])])), BrickpilotLongitudinalSuppressor.RADAR_MODEL_MISMATCH),
-      (dict(plan=LongPlan(longitudinalPlanSource="e2e")), BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE),
+      (dict(cs=CS(vEgo=25.0 * 0.44704, vCruise=75.0),
+            plan=LongPlan(longitudinalPlanSource="e2e", speeds=[25.0 * 0.44704, 25.5 * 0.44704])),
+       BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE),
       (dict(plan=LongPlan(longitudinalPlanSource="lead0")), BrickpilotLongitudinalSuppressor.LEAD_PRESENT_OR_LIMITING),
       (dict(cs=CS(vEgo=1.5, vCruise=45.0)), BrickpilotLongitudinalSuppressor.STOP_CREEP_BAND),
       (dict(cs=CS(gasPressed=True)), BrickpilotLongitudinalSuppressor.DRIVER_OVERRIDE),
@@ -331,10 +356,10 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
       (dict(radar=RadarState(Lead(status=True, dRel=90.0, vRel=0.0))), BrickpilotLongitudinalSuppressor.LEAD_PRESENT_OR_LIMITING),
       (dict(curvature=0.004), BrickpilotLongitudinalSuppressor.HIGH_LATERAL_DEMAND),
       (dict(cs=CS(vCruise=75.0), plan=LongPlan(speeds=[20.0, 20.5])), BrickpilotLongitudinalSuppressor.NO_CATCHUP_DEMAND),
-      (dict(cs=CS(aEgo=0.45)), BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL),
+      (dict(cs=CS(aEgo=0.53)), BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL),
     ]
     for kwargs, suppressor in cases:
-      with self.subTest(suppressor=suppressor):
+      with self.subTest(suppressor=int(suppressor)):
         state = self.run_assist(**kwargs)
         self.assertFalse(state.active)
         self.assertIn(suppressor, state.suppressors)

@@ -100,15 +100,23 @@ catch-up above 35 mph can use a stronger bounded assist delta. The intent is to
 test the specific entry-ramp problem without making local-road cruise-speed
 mistakes look like a valid acceleration request.
 
+In 0.4.4, Brickpilot promotes the offline sweep result instead of making another
+tiny manual tweak. Clean no-lead cruise catch-up is wider and stronger, and
+ExperimentalMode/e2e can now receive a bounded high-speed catch-up bridge above
+32 mph when speed deficit is large and the same hard vetoes are clear. This is
+meant to create materially different data on entry ramps and exp-mode catch-up
+without adding energy into stop, lead, braking, regen, or auto-hold contexts.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
 sunnypilot torque extension path:
 
-- Full smoothing below 26 mph.
-- Fade-out to no smoothing by 50 mph.
-- Extra damping on fast torque reversals.
-- Brief center hold on weak low-speed torque zero-crossings in 0.4.3.
+- Full smoothing below 34 mph in 0.4.4, widened from 26 mph.
+- Fade-out to no smoothing by 62 mph in 0.4.4, widened from 50 mph.
+- Extra damping on fast torque reversals, stronger in 0.4.4.
+- Brief center hold on weak low-speed torque zero-crossings in 0.4.3, extended
+  in 0.4.4.
 - Reset on driver steering override.
 - Applied before stock CAN-FD safety and rate limits.
 
