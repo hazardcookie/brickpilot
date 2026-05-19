@@ -22,6 +22,8 @@ LongCtrlState = structs.CarControl.Actuators.LongControlState
 MAX_ANGLE = 85
 MAX_ANGLE_FRAMES = 89
 MAX_ANGLE_CONSECUTIVE_FRAMES = 2
+TUCSON_CANFD_MADS_MANUAL_STEER_MIN_ANGLE = 35.0
+TUCSON_CANFD_MADS_MANUAL_STEER_MAX_SPEED = 30.0 * CV.MPH_TO_MS
 
 # On some HKG CAN and CAN FD non-CANFD_ALT_BUTTONS, the cancel button (CF_Clu_CruiseSwState / CRUISE_BUTTONS = 4) is
 # a pause/resume toggle, not a dedicated cancel. Firing it mid-brake inadvertently can cause a re-enable attempt
@@ -74,10 +76,24 @@ class CarController(CarControllerBase, EsccCarController, LeadDataCarController,
     self.last_button_frame = 0
     self.cancel_counter = 0
 
-  @staticmethod
-  def get_tucson_canfd_apply_steer_req(CC, CS, apply_steer_req: bool) -> bool:
-    # 0.4.x restores normal Hyundai steering behavior: no extra Tucson
-    # CAN-FD MADS angle latch or steer-fault cooldown beyond common_fault_avoidance.
+  def get_tucson_canfd_mads_manual_steer_isolation(self, CC, CS) -> bool:
+    # 0.4.9 isolates low-speed, high-angle manual turns in MADS. This is not
+    # the old angle-only guard: it requires driver steering torque and leaves
+    # upstream common_fault_avoidance in charge when the driver is not steering.
+    tucson_canfd_scope = bool(self.CP.flags & HyundaiFlags.CANFD and
+                              self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN and
+                              getattr(self.mads, "enable_mads", False))
+    if not tucson_canfd_scope or not CC.latActive or not CS.out.steeringPressed:
+      return False
+
+    if getattr(CS.out, "vEgo", 0.0) > TUCSON_CANFD_MADS_MANUAL_STEER_MAX_SPEED:
+      return False
+
+    return abs(float(CS.out.steeringAngleDeg)) >= TUCSON_CANFD_MADS_MANUAL_STEER_MIN_ANGLE
+
+  def get_tucson_canfd_apply_steer_req(self, CC, CS, apply_steer_req: bool) -> bool:
+    if self.get_tucson_canfd_mads_manual_steer_isolation(CC, CS):
+      return False
     return apply_steer_req
 
   def update(self, CC, CC_SP, CS, now_nanos):

@@ -54,13 +54,13 @@ class BrickpilotLongitudinalAssistState:
   lead_closing: bool = False
 
 
-# Brickpilot 0.4.8 keeps the proven catch-up guards and adds a trajectory-
-# confirmed high-deficit branch so road tests can separate ordinary set-speed
-# mistakes from real ramp/merge under-acceleration.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.4.8"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40800
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_048_friction_twostage_yololite_damp170"
-ULTIMATE_100K_CANDIDATE_HASH = 3268147089
+# Brickpilot 0.4.9 keeps the 0.4.8 longitudinal policy and advances the
+# steering/MADS live-control path. The version code still rides in longitudinal
+# shadow telemetry so route analysis can distinguish the installed build.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.4.9"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40900
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_049_mads_manual_high_angle_isolation"
+ULTIMATE_100K_CANDIDATE_HASH = 2056193228
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160

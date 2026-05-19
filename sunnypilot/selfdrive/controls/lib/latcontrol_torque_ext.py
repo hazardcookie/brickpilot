@@ -12,9 +12,9 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.values import CAR, HyundaiFlags
 
 
-# Brickpilot 0.4.8 moves from a slow final-output return glide to a combined
-# upstream friction-shaping + causal two-stage texture probe. It keeps Hyundai
-# CAN-FD safety/rate limits unchanged and fades out before highway speeds.
+# Brickpilot 0.4.9 keeps the 0.4.8 friction-shaping + two-stage texture probe
+# and adds manual high-angle MADS isolation. It keeps Hyundai CAN-FD safety/rate
+# limits unchanged and fades texture out before highway speeds.
 TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED = 38 * CV.MPH_TO_MS
 TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 70 * CV.MPH_TO_MS
 TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.13000000
@@ -30,6 +30,10 @@ TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_HOLD_FRAMES = 1
 TUCSON_CANFD_TORQUE_TEXTURE_RATE_LIMIT_PER_SEC = None
 TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA = 0.22000000
 TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_MAX_SMOOTH = 1.20
+TUCSON_CANFD_MANUAL_STEER_ISOLATION_MIN_ANGLE = 35.0
+TUCSON_CANFD_MANUAL_STEER_ISOLATION_MAX_SPEED = 30.0 * CV.MPH_TO_MS
+TUCSON_CANFD_MANUAL_STEER_RELEASE_FRAMES = 30
+TUCSON_CANFD_MANUAL_STEER_RELEASE_MAX_TORQUE = 0.35
 
 
 class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverride):
@@ -42,6 +46,7 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
     self.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
     self.tucson_canfd_output_torque_zero_cross_hold = 0
     self.tucson_canfd_output_torque_reversal_hold = 0
+    self.tucson_canfd_manual_steer_release_frames = 0
 
   def reset_tucson_canfd_low_speed_torque_smoothing(self) -> None:
     self.tucson_canfd_output_torque_smoothing_initialized = False
@@ -49,6 +54,13 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
     self.tucson_canfd_output_torque_second_smooth = 0.0
     self.tucson_canfd_output_torque_zero_cross_hold = 0
     self.tucson_canfd_output_torque_reversal_hold = 0
+
+  @staticmethod
+  def tucson_canfd_manual_steer_isolation_active(CS) -> bool:
+    angle_deg = float(getattr(CS, "steeringAngleDeg", 0.0))
+    return bool(CS.steeringPressed and
+                CS.vEgo <= TUCSON_CANFD_MANUAL_STEER_ISOLATION_MAX_SPEED and
+                abs(angle_deg) >= TUCSON_CANFD_MANUAL_STEER_ISOLATION_MIN_ANGLE)
 
   def apply_tucson_canfd_low_speed_torque_smoothing(self, CS, output_torque: float) -> float:
     # Brickpilot Tucson steering-texture candidate: smooth controller output
@@ -58,7 +70,21 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
     if not is_tucson_canfd or CS.vEgo >= TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED:
       self.reset_tucson_canfd_low_speed_torque_smoothing()
       self.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
+      self.tucson_canfd_manual_steer_release_frames = 0
       return output_torque
+
+    if self.tucson_canfd_manual_steer_isolation_active(CS):
+      self.reset_tucson_canfd_low_speed_torque_smoothing()
+      self.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
+      self.tucson_canfd_manual_steer_release_frames = TUCSON_CANFD_MANUAL_STEER_RELEASE_FRAMES
+      return 0.0
+
+    if self.tucson_canfd_manual_steer_release_frames > 0:
+      self.tucson_canfd_manual_steer_release_frames -= 1
+      self.reset_tucson_canfd_low_speed_torque_smoothing()
+      release_scale = 1.0 - self.tucson_canfd_manual_steer_release_frames / max(1, TUCSON_CANFD_MANUAL_STEER_RELEASE_FRAMES)
+      release_limit = TUCSON_CANFD_MANUAL_STEER_RELEASE_MAX_TORQUE * release_scale
+      return max(-release_limit, min(release_limit, output_torque))
 
     if CS.steeringPressed:
       self.reset_tucson_canfd_low_speed_torque_smoothing()

@@ -143,6 +143,16 @@ adds a high-deficit ramp/merge branch that requires both set-speed demand and
 planner trajectory confirmation, and the ExperimentalMode/e2e bridge starts at
 27 mph with the same trajectory confirmation and hard vetoes.
 
+In 0.4.9, Brickpilot keeps the 0.4.8 steering and longitudinal candidates but
+adds a live MADS/manual-steering isolation path for the hard-turn symptom found
+after the 0.4.8 drive. On Tucson CAN-FD, when MADS is available, lateral is
+active, the driver is pressing the wheel, speed is below 30 mph, and steering
+angle is at least 35 deg, Brickpilot cuts the CAN-FD steering request and zeros
+the torque-extension output. After release, torque returns through a short
+30-frame ramp. Existing shadow steering-guard fields now mark that isolation so
+future routes can score manual high-angle turns without adding a new telemetry
+schema.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
@@ -165,6 +175,9 @@ sunnypilot torque extension path:
   calculated, then switches the final texture to a faster causal two-stage
   filter with a smaller zero-cross hold, speed fade-out by 70 mph, and no extra
   pre-safety torque rate clamp.
+- 0.4.9 leaves the 0.4.8 texture intact for normal assisted steering, but zeros
+  and then ramps torque back during low-speed high-angle manual steering in
+  MADS so the driver can own hard turns without controller torque texture.
 - Reset on driver steering override.
 - Applied before stock CAN-FD safety and rate limits.
 
@@ -177,11 +190,12 @@ driver steering corrections.
 Brickpilot experimented with an extra Tucson CAN-FD MADS steering guard, then
 removed it before 0.4.0-beta because it was too aggressive for testing. Current
 0.4.x behavior leaves high-angle steering request suppression to upstream
-Hyundai `common_fault_avoidance`.
+Hyundai `common_fault_avoidance` unless the driver is manually steering a
+low-speed high-angle turn in MADS.
 
 Brickpilot still logs steering-guard shadow fields so later route review can
 tell whether high-angle conditions were relevant without adding a separate live
-guard.
+guard. In 0.4.9 those same fields also identify MADS manual-steering isolation.
 
 ### Labels and Research Telemetry
 

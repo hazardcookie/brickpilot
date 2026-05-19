@@ -23,6 +23,8 @@ sys.modules.setdefault("openpilot.sunnypilot.selfdrive.controls.lib.latcontrol_t
 
 from openpilot.sunnypilot.selfdrive.controls.lib.latcontrol_torque_ext import (  # noqa: E402
   LatControlTorqueExt,
+  TUCSON_CANFD_MANUAL_STEER_ISOLATION_MIN_ANGLE,
+  TUCSON_CANFD_MANUAL_STEER_RELEASE_FRAMES,
   TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA,
   TUCSON_CANFD_TORQUE_TEXTURE_SCALE,
   TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES,
@@ -43,11 +45,12 @@ def make_ext(car_fingerprint=CAR.HYUNDAI_TUCSON_4TH_GEN, flags=HyundaiFlags.CANF
   ext.tucson_canfd_output_torque_smoothing_driver_override_cooldown = 0
   ext.tucson_canfd_output_torque_zero_cross_hold = 0
   ext.tucson_canfd_output_torque_reversal_hold = 0
+  ext.tucson_canfd_manual_steer_release_frames = 0
   return ext
 
 
-def car_state(speed_mph=10.0, steering_pressed=False):
-  return SimpleNamespace(vEgo=speed_mph * CV.MPH_TO_MS, steeringPressed=steering_pressed)
+def car_state(speed_mph=10.0, steering_pressed=False, angle=0.0):
+  return SimpleNamespace(vEgo=speed_mph * CV.MPH_TO_MS, steeringPressed=steering_pressed, steeringAngleDeg=angle)
 
 
 def test_tucson_canfd_low_speed_smoothing_reduces_fast_output_reversal():
@@ -126,6 +129,29 @@ def test_driver_steering_bypasses_smoothing_briefly_after_release():
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.6) == 0.6 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.6)
   assert 0.0 < smoothed < 0.6 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
+
+
+def test_manual_high_angle_steering_isolation_zeroes_then_ramps_back():
+  ext = make_ext()
+
+  ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8)
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(
+    car_state(steering_pressed=True, angle=TUCSON_CANFD_MANUAL_STEER_ISOLATION_MIN_ANGLE + 1.0), 0.8
+  ) == 0.0
+  assert ext.tucson_canfd_manual_steer_release_frames == TUCSON_CANFD_MANUAL_STEER_RELEASE_FRAMES
+  assert not ext.tucson_canfd_output_torque_smoothing_initialized
+
+  first_release = ext.apply_tucson_canfd_low_speed_torque_smoothing(
+    car_state(angle=TUCSON_CANFD_MANUAL_STEER_ISOLATION_MIN_ANGLE + 1.0), 0.8
+  )
+  assert 0.0 < first_release < 0.05
+  assert ext.tucson_canfd_manual_steer_release_frames == TUCSON_CANFD_MANUAL_STEER_RELEASE_FRAMES - 1
+
+  for _ in range(TUCSON_CANFD_MANUAL_STEER_RELEASE_FRAMES - 1):
+    ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8)
+
+  assert ext.tucson_canfd_manual_steer_release_frames == 0
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8) == 0.8 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
 
 
 def test_non_tucson_and_high_speed_paths_keep_raw_output_and_reset_smoothing():

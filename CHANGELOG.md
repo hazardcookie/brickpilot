@@ -5,6 +5,44 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.9 - 2026-05-19
+
+Staging R&D build from the 0.4.8 route review, manual-steering/MADS road
+feedback, targeted qlog audit, and the external GPT-5.5 Pro label/control
+attribution critique.
+
+### Changed
+
+- Added Tucson CAN-FD MADS manual-steering isolation for low-speed high-angle
+  turns. When MADS is available, lateral is active, the driver is applying
+  steering torque, speed is below 30 mph, and wheel angle is at least 35 deg,
+  Brickpilot now drops the CAN-FD steering request instead of continuing to
+  push torque into the driver's hands.
+- Added matching low-speed torque-extension isolation for the same high-angle
+  manual-steering state. The torque texture path now outputs zero while the
+  driver owns the high-angle turn, then ramps torque back in over 30 frames
+  after release to avoid a snap-back feel as the wheel returns toward center.
+- Reused existing `brickpilotShadow` steering-guard fields for 0.4.9 MADS
+  isolation telemetry: `steeringGuardSuppressed`,
+  `steeringGuardImmediateSuppression`, `steeringGuardTorqueZeroed`,
+  `steeringGuardHighAngleLatched`, angle, and recovery angle now mark this
+  manual-steering cut in addition to upstream high-angle suppression.
+- Kept the 0.4.8 longitudinal catch-up policy, PHEV vetoes, friction/jerk
+  shaping, two-stage torque texture, and Tucson CAN-FD `Damping_Gain=170`.
+- Bumped Brickpilot brand/version metadata and longitudinal shadow version code
+  to `40900`.
+
+### Validation
+
+- Ran a targeted qlog audit over recent 0.4.6, 0.4.7, and 0.4.8 routes instead
+  of another broad 2M replay sweep. The audit showed many samples where
+  `steeringPressed`, `latActive`, and nonzero `torqueOutputCan` overlap,
+  including saturated torque, which directly supports the MADS manual-steering
+  fix.
+- Covered by `opendbc_repo/opendbc/car/hyundai/tests/test_tucson_mads_gating.py`.
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+
 ## 0.4.8 - 2026-05-19
 
 Staging R&D build from the post-0.4.7 label pass, route-level qlog sweeps, and

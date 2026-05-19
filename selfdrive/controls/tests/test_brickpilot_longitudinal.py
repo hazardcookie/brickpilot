@@ -165,11 +165,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_048_marks_friction_two_stage_yololite_build(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.8")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40800)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_048_friction_twostage_yololite_damp170")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3268147089)
+  def test_049_marks_mads_manual_high_angle_isolation_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.9")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40900)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_049_mads_manual_high_angle_isolation")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 2056193228)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)

@@ -36,6 +36,8 @@ LaneChangeDirection = log.LaneChangeDirection
 ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
 BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG = 85.0
 BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_FRAMES = 89
+BRICKPILOT_TUCSON_CANFD_MADS_MANUAL_STEER_MIN_ANGLE_DEG = 35.0
+BRICKPILOT_TUCSON_CANFD_MADS_MANUAL_STEER_MAX_SPEED = 30.0 * CV.MPH_TO_MS
 
 
 class Controls(ControlsExt):
@@ -216,19 +218,22 @@ class Controls(ControlsExt):
       self.brickpilot_tucson_guard_above_limit_frames = 0
     upstream_would_suppress = bool(guard_active and
                                    self.brickpilot_tucson_guard_above_limit_frames > BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_FRAMES)
+    manual_mads_isolation = bool(guard_active and CS.steeringPressed and
+                                 CS.vEgo <= BRICKPILOT_TUCSON_CANFD_MADS_MANUAL_STEER_MAX_SPEED and
+                                 angle_abs >= BRICKPILOT_TUCSON_CANFD_MADS_MANUAL_STEER_MIN_ANGLE_DEG)
 
     return {
       "scope": tucson_canfd_scope,
-      "angle_latched": False,
+      "angle_latched": manual_mads_isolation,
       "fault_cooldown_active": False,
       "temporary_fault": temporary_fault,
-      "suppressed": upstream_would_suppress,
-      "immediate_suppression": False,
-      "torque_zeroed": upstream_would_suppress,
+      "suppressed": bool(upstream_would_suppress or manual_mads_isolation),
+      "immediate_suppression": manual_mads_isolation,
+      "torque_zeroed": bool(upstream_would_suppress or manual_mads_isolation),
       "fault_cooldown_frames": 0,
       "above_limit_frames": int(max(0, self.brickpilot_tucson_guard_above_limit_frames)),
       "angle_deg": float(CS.steeringAngleDeg),
-      "recovery_angle_deg": BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG,
+      "recovery_angle_deg": BRICKPILOT_TUCSON_CANFD_MADS_MANUAL_STEER_MIN_ANGLE_DEG if manual_mads_isolation else BRICKPILOT_TUCSON_CANFD_GUARD_MAX_ANGLE_DEG,
       "upstream_would_suppress": upstream_would_suppress,
     }
 
