@@ -32,6 +32,7 @@ def test_tucson_canfd_uses_brickpilot_damping_gain():
   hyundaicanfd.create_steering_messages(packer, make_cp(), FakeCan(), True, True, 20, 2)
 
   assert packer.messages
+  assert hyundaicanfd.BRICKPILOT_TUCSON_CANFD_DAMPING_GAIN == 170
   assert all(values["Damping_Gain"] == hyundaicanfd.BRICKPILOT_TUCSON_CANFD_DAMPING_GAIN
              for _, _, values in packer.messages)
 

@@ -54,12 +54,13 @@ class BrickpilotLongitudinalAssistState:
   lead_closing: bool = False
 
 
-# Brickpilot 0.4.7 keeps the proven 0.4.6 catch-up bridge and changes only the
-# Tucson CAN-FD lateral unwind texture so the next road test isolates steering.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.4.7"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40700
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_047_ramp4_exp5_returnglide_damp140"
-ULTIMATE_100K_CANDIDATE_HASH = 4214335218
+# Brickpilot 0.4.8 keeps the proven catch-up guards and adds a trajectory-
+# confirmed high-deficit branch so road tests can separate ordinary set-speed
+# mistakes from real ramp/merge under-acceleration.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.4.8"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 40800
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_048_friction_twostage_yololite_damp170"
+ULTIMATE_100K_CANDIDATE_HASH = 3268147089
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
@@ -88,9 +89,16 @@ RAMP_CATCHUP_MIN_SPEED = 24.0 * CV.MPH_TO_MS
 RAMP_CATCHUP_MIN_DEFICIT = 4.0 * CV.MPH_TO_MS
 RAMP_CATCHUP_MAX_ASSIST_DELTA = 1.080
 RAMP_CATCHUP_ASSIST_BONUS = 0.260
+HIGH_CONF_RAMP_MIN_SPEED = 38.0 * CV.MPH_TO_MS
+HIGH_CONF_RAMP_MIN_DEFICIT = 7.0 * CV.MPH_TO_MS
+HIGH_CONF_RAMP_MIN_TRAJECTORY_DEFICIT = 1.5 * CV.MPH_TO_MS
+HIGH_CONF_RAMP_MAX_LATERAL_ACCEL = 0.48
+HIGH_CONF_RAMP_MAX_ASSIST_DELTA = 1.140
+HIGH_CONF_RAMP_ASSIST_BONUS = 0.340
 MAX_ASSISTED_A_TARGET = 2.000
-EXP_SOURCE_MIN_SPEED = 30.0 * CV.MPH_TO_MS
+EXP_SOURCE_MIN_SPEED = 27.0 * CV.MPH_TO_MS
 EXP_SOURCE_MIN_DEFICIT = 5.0 * CV.MPH_TO_MS
+EXP_SOURCE_MIN_TRAJECTORY_DEFICIT = 1.0 * CV.MPH_TO_MS
 EXP_SOURCE_MAX_LATERAL_ACCEL = 0.70
 EXP_SOURCE_MAX_ASSIST_DELTA = 0.860
 BRICKPILOT_HOLD_SECONDS = 2.050
@@ -271,6 +279,7 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   v_ego = _safe_float(getattr(CS, "vEgo", 0.0))
   a_ego = _safe_float(getattr(CS, "aEgo", 0.0))
   a_target = _safe_float(getattr(long_plan, "aTarget", 0.0))
+  trajectory_deficit = _trajectory_speed_deficit(long_plan, v_ego)
   speed_deficit = _combined_speed_deficit(CS, long_plan, v_ego)
   lateral_demand = abs(_safe_float(current_curvature)) * v_ego * v_ego
   accel_lag = max(0.0, a_target - a_ego)
@@ -314,6 +323,7 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   experimental_source_bridge = bool(source_name in EXPERIMENTAL_SOURCE_NAMES and
                                     v_ego >= EXP_SOURCE_MIN_SPEED and
                                     speed_deficit >= EXP_SOURCE_MIN_DEFICIT and
+                                    trajectory_deficit >= EXP_SOURCE_MIN_TRAJECTORY_DEFICIT and
                                     lateral_demand <= EXP_SOURCE_MAX_LATERAL_ACCEL)
   if not source_is_cruise and not experimental_source_bridge:
     suppressors |= BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE
@@ -381,9 +391,17 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              accel_lag=accel_lag, lateral_demand=lateral_demand,
                                              lead_distance=lead_distance, lead_closing=lead_closing)
 
+  high_confidence_ramp = bool(source_is_cruise and
+                              v_ego >= HIGH_CONF_RAMP_MIN_SPEED and
+                              speed_deficit >= HIGH_CONF_RAMP_MIN_DEFICIT and
+                              trajectory_deficit >= HIGH_CONF_RAMP_MIN_TRAJECTORY_DEFICIT and
+                              lateral_demand <= HIGH_CONF_RAMP_MAX_LATERAL_ACCEL and
+                              not held_activation)
   ramp_catchup = bool(v_ego >= RAMP_CATCHUP_MIN_SPEED and speed_deficit >= RAMP_CATCHUP_MIN_DEFICIT and
                       lateral_demand <= CURVE_SOFT_DECAY_LATERAL_ACCEL and not held_activation)
   assist_delta_cap = RAMP_CATCHUP_MAX_ASSIST_DELTA if ramp_catchup else MAX_ASSIST_DELTA
+  if high_confidence_ramp:
+    assist_delta_cap = HIGH_CONF_RAMP_MAX_ASSIST_DELTA
   if experimental_source_bridge:
     assist_delta_cap = min(assist_delta_cap, EXP_SOURCE_MAX_ASSIST_DELTA)
   deficit_mph_over = max(0.0, (speed_deficit - MIN_CATCHUP_SPEED_DEFICIT) / CV.MPH_TO_MS)
@@ -394,7 +412,8 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                      max(MIN_ASSIST_DELTA,
                          DEFICIT_ASSIST_COEFF_PER_MPH * deficit_mph_over +
                          LAG_ASSIST_COEFF * min(lag_over, 1.0) +
-                         (RAMP_CATCHUP_ASSIST_BONUS if ramp_catchup else 0.0)))
+                         (HIGH_CONF_RAMP_ASSIST_BONUS if high_confidence_ramp else
+                          RAMP_CATCHUP_ASSIST_BONUS if ramp_catchup else 0.0)))
   if lateral_demand > CURVE_SOFT_DECAY_LATERAL_ACCEL:
     assist_delta *= CURVE_SOFT_DELTA_DECAY
   accel_max = min(_safe_float(accel_limits[1], CarControllerParams.ACCEL_MAX), MAX_ASSISTED_A_TARGET)

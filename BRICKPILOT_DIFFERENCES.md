@@ -133,6 +133,16 @@ the natural two-stage glide above the 0.4.6 fast-unwind alpha, so 0.4.7 removes
 that extra center-return acceleration while keeping the same 2M road-budget
 filter, zero-cross hold, driver bypasses, and stock Hyundai safety/rate limits.
 
+In 0.4.8, Brickpilot changes direction from final-output-only steering texture
+to a root-cause steering experiment. Tucson CAN-FD torque control now softens
+jerk-driven friction sign flips near center return before the torque friction
+feedforward is applied, then uses a faster causal two-stage output texture with
+smaller zero-cross holds and no extra pre-safety rate clamp. The scoped Tucson
+CAN-FD steering `Damping_Gain` moves from `140` to `170`. Longitudinally, 0.4.8
+adds a high-deficit ramp/merge branch that requires both set-speed demand and
+planner trajectory confirmation, and the ExperimentalMode/e2e bridge starts at
+27 mph with the same trajectory confirmation and hard vetoes.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
@@ -151,6 +161,10 @@ sunnypilot torque extension path:
   weak zero-cross hold for low-amplitude reversals.
 - 0.4.7 keeps the 0.4.6 winner but removes the fast center-return alpha, letting
   the same two-stage smoother unwind naturally after a curve.
+- 0.4.8 adds Tucson-only friction/jerk shaping before output torque is
+  calculated, then switches the final texture to a faster causal two-stage
+  filter with a smaller zero-cross hold, speed fade-out by 70 mph, and no extra
+  pre-safety torque rate clamp.
 - Reset on driver steering override.
 - Applied before stock CAN-FD safety and rate limits.
 

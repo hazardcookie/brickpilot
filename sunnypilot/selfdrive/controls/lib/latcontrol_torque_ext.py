@@ -12,24 +12,24 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.values import CAR, HyundaiFlags
 
 
-# Brickpilot 0.4.7 keeps the 35-segment/2M VM replay road-budget winner
-# `road046s406_0886848` and removes the extra 0.4.6 fast unwind alpha. The
-# return-phase sweep scored the natural two-stage glide better for the wheel
-# coming back toward center, which is where the latest road labels clustered.
-TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 62 * CV.MPH_TO_MS
-TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.03699800
-TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 1.03118987
+# Brickpilot 0.4.8 moves from a slow final-output return glide to a combined
+# upstream friction-shaping + causal two-stage texture probe. It keeps Hyundai
+# CAN-FD safety/rate limits unchanged and fades out before highway speeds.
+TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED = 38 * CV.MPH_TO_MS
+TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED = 70 * CV.MPH_TO_MS
+TUCSON_CANFD_TORQUE_TEXTURE_ALPHA = 0.13000000
+TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE = 0.40000000
 TUCSON_CANFD_TORQUE_TEXTURE_DRIVER_OVERRIDE_COOLDOWN_FRAMES = 25
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES = 10
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW = 0.76864882
-TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_SMOOTH = 0.68634725
-TUCSON_CANFD_TORQUE_TEXTURE_SECOND_ALPHA = 0.301367
-TUCSON_CANFD_TORQUE_TEXTURE_DEADBAND = 0.00838157
-TUCSON_CANFD_TORQUE_TEXTURE_SCALE = 0.93298360
-TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_HOLD_FRAMES = 2
-TUCSON_CANFD_TORQUE_TEXTURE_RATE_LIMIT_PER_SEC = 5.805189
-TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA = TUCSON_CANFD_TORQUE_TEXTURE_ALPHA
-TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_MAX_SMOOTH = 1.0
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES = 6
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW = 0.48000000
+TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_SMOOTH = 0.48000000
+TUCSON_CANFD_TORQUE_TEXTURE_SECOND_ALPHA = 0.24000000
+TUCSON_CANFD_TORQUE_TEXTURE_DEADBAND = 0.01200000
+TUCSON_CANFD_TORQUE_TEXTURE_SCALE = 0.95500000
+TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_HOLD_FRAMES = 1
+TUCSON_CANFD_TORQUE_TEXTURE_RATE_LIMIT_PER_SEC = None
+TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA = 0.22000000
+TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_MAX_SMOOTH = 1.20
 
 
 class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverride):
@@ -102,19 +102,25 @@ class LatControlTorqueExt(NeuralNetworkLateralControl, LatControlTorqueExtOverri
       self.tucson_canfd_output_torque_second_smooth = 0.0
       return 0.0
 
-    alpha = TUCSON_CANFD_TORQUE_TEXTURE_ALPHA
+    speed_blend = 1.0
+    if CS.vEgo > TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED:
+      denom = max(0.001, TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED - TUCSON_CANFD_TORQUE_TEXTURE_FULL_SMOOTH_SPEED)
+      speed_blend = max(0.0, min(1.0, (TUCSON_CANFD_TORQUE_TEXTURE_NO_SMOOTH_SPEED - CS.vEgo) / denom))
+
+    alpha = 1.0 - speed_blend * (1.0 - TUCSON_CANFD_TORQUE_TEXTURE_ALPHA)
     if scaled_torque * self.tucson_canfd_output_torque_smooth < 0.0:
-      alpha *= TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE
+      alpha *= max(TUCSON_CANFD_TORQUE_TEXTURE_REVERSAL_ALPHA_SCALE, 1.0 - speed_blend)
     returning_to_center = bool(scaled_torque * self.tucson_canfd_output_torque_smooth > 0.0 and
                                abs(scaled_torque) < abs(self.tucson_canfd_output_torque_smooth) and
                                abs(self.tucson_canfd_output_torque_smooth) <= TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_MAX_SMOOTH)
     if returning_to_center:
-      alpha = max(alpha, TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA)
+      alpha = max(alpha, 1.0 - speed_blend * (1.0 - TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA))
 
     next_value = self.tucson_canfd_output_torque_smooth + alpha * (scaled_torque - self.tucson_canfd_output_torque_smooth)
-    rate_limit = TUCSON_CANFD_TORQUE_TEXTURE_RATE_LIMIT_PER_SEC * DT_CTRL
-    next_value = min(max(next_value, self.tucson_canfd_output_torque_smooth - rate_limit),
-                     self.tucson_canfd_output_torque_smooth + rate_limit)
+    if TUCSON_CANFD_TORQUE_TEXTURE_RATE_LIMIT_PER_SEC is not None:
+      rate_limit = TUCSON_CANFD_TORQUE_TEXTURE_RATE_LIMIT_PER_SEC * DT_CTRL
+      next_value = min(max(next_value, self.tucson_canfd_output_torque_smooth - rate_limit),
+                       self.tucson_canfd_output_torque_smooth + rate_limit)
     if abs(next_value) < TUCSON_CANFD_TORQUE_TEXTURE_DEADBAND and abs(scaled_torque) < TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_MAX_RAW:
       next_value = 0.0
 

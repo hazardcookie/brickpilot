@@ -27,6 +27,11 @@ from openpilot.sunnypilot.selfdrive.controls.lib.latcontrol_torque_ext import ( 
   TUCSON_CANFD_TORQUE_TEXTURE_SCALE,
   TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES,
 )
+from openpilot.selfdrive.controls.lib.latcontrol_torque import (  # noqa: E402
+  JERK_GAIN,
+  TUCSON_CANFD_FRICTION_SHAPING_SPEED,
+  tucson_canfd_friction_input,
+)
 
 
 def make_ext(car_fingerprint=CAR.HYUNDAI_TUCSON_4TH_GEN, flags=HyundaiFlags.CANFD):
@@ -51,7 +56,7 @@ def test_tucson_canfd_low_speed_smoothing_reduces_fast_output_reversal():
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8) == 0.8 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.8)
 
-  assert abs(smoothed - 0.7292233515829548) < 1e-9
+  assert abs(smoothed - 0.74493056) < 1e-9
 
 
 def test_smoothing_remains_active_at_suburban_speeds():
@@ -60,18 +65,18 @@ def test_smoothing_remains_active_at_suburban_speeds():
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=40.0), 0.8) == 0.8 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=40.0), -0.8)
 
-  assert abs(smoothed - 0.7292233515829548) < 1e-9
+  assert abs(smoothed - 0.7369544) < 1e-9
 
 
 def test_weak_zero_cross_reversal_hold_reduces_ping_pong_texture():
   ext = make_ext()
 
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.3) == 0.3 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
-  for _ in range(3 + TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES):
+  for _ in range(2 + TUCSON_CANFD_TORQUE_TEXTURE_ZERO_CROSS_HOLD_FRAMES):
     assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.3) == 0.0
 
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.3)
-  assert abs(smoothed + 0.003120823498970172) < 1e-9
+  assert abs(smoothed + 0.0089388) < 1e-9
 
 
 def test_center_return_path_uses_natural_two_stage_glide():
@@ -80,10 +85,10 @@ def test_center_return_path_uses_natural_two_stage_glide():
   first = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8)
   second = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.4)
 
-  assert TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA < 0.04
+  assert TUCSON_CANFD_TORQUE_TEXTURE_CENTER_RETURN_ALPHA > 0.20
   assert second < first
   assert second > 0.4 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
-  assert abs(second - 0.7422257820013732) < 1e-9
+  assert abs(second - 0.7438304) < 1e-9
 
 
 def test_smoothing_resets_for_driver_steering_and_inactive_lateral_control():
@@ -120,7 +125,7 @@ def test_driver_steering_bypasses_smoothing_briefly_after_release():
 
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.6) == 0.6 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
   smoothed = ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), -0.6)
-  assert abs(smoothed) < 1e-9
+  assert 0.0 < smoothed < 0.6 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
 
 
 def test_non_tucson_and_high_speed_paths_keep_raw_output_and_reset_smoothing():
@@ -134,7 +139,7 @@ def test_non_tucson_and_high_speed_paths_keep_raw_output_and_reset_smoothing():
 
   ext = make_ext()
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.8) == 0.8 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
-  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=65.0), -0.8) == -0.8
+  assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(speed_mph=72.0), -0.8) == -0.8
   assert not ext.tucson_canfd_output_torque_smoothing_initialized
   assert ext.apply_tucson_canfd_low_speed_torque_smoothing(car_state(), 0.5) == 0.5 * TUCSON_CANFD_TORQUE_TEXTURE_SCALE
 
@@ -145,3 +150,24 @@ def test_tucson_canfd_keeps_stock_canfd_safety_slew_limits():
   assert params.STEER_MAX == 270
   assert params.STEER_DELTA_UP == 2
   assert params.STEER_DELTA_DOWN == 3
+
+
+def test_tucson_canfd_friction_input_softens_center_return_sign_flip():
+  cp = SimpleNamespace(carFingerprint=CAR.HYUNDAI_TUCSON_4TH_GEN, flags=HyundaiFlags.CANFD)
+  raw = 0.02 + JERK_GAIN * -2.0
+
+  shaped = tucson_canfd_friction_input(cp, 20.0, 0.02, -2.0, 0.6, 0.2)
+
+  assert raw < 0.0
+  assert shaped > 0.0
+  assert abs(shaped) < abs(raw)
+
+
+def test_friction_input_keeps_non_tucson_and_high_speed_raw():
+  tucson = SimpleNamespace(carFingerprint=CAR.HYUNDAI_TUCSON_4TH_GEN, flags=HyundaiFlags.CANFD)
+  non_tucson = SimpleNamespace(carFingerprint=CAR.HYUNDAI_IONIQ_5, flags=HyundaiFlags.CANFD)
+
+  expected = 0.02 + JERK_GAIN * -2.0
+
+  assert tucson_canfd_friction_input(non_tucson, 20.0, 0.02, -2.0, 0.6, 0.2) == expected
+  assert tucson_canfd_friction_input(tucson, TUCSON_CANFD_FRICTION_SHAPING_SPEED + 0.1, 0.02, -2.0, 0.6, 0.2) == expected

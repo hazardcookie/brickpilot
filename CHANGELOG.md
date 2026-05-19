@@ -5,6 +5,45 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.4.8 - 2026-05-19
+
+Staging R&D build from the post-0.4.7 label pass, route-level qlog sweeps, and
+large VM steering search focused on return-to-center stair-stepping.
+
+### Changed
+
+- Added Tucson CAN-FD friction/jerk shaping before torque friction feedforward.
+  Near center return, Brickpilot now reduces jerk-driven friction sign flips
+  instead of only filtering the final torque command.
+- Replaced the 0.4.7 slow return glide with a 045-style causal two-stage torque
+  texture probe: stronger first-stage response, smaller weak zero-cross hold,
+  reduced torque scale, no extra pre-safety rate clamp, and speed fade-out to
+  raw torque by 70 mph.
+- Raised the Tucson CAN-FD scoped steering `Damping_Gain` from `140` to `170`
+  while preserving stock Hyundai CAN-FD steering safety and rate limits.
+- Added a trajectory-confirmed high-deficit ramp/merge branch for clean cruise
+  catch-up. It can use a larger bounded assist delta only when set-speed demand
+  and planner trajectory both agree that the car is falling behind.
+- Strengthened the ExperimentalMode/e2e catch-up bridge by lowering its speed
+  threshold to 27 mph while requiring trajectory confirmation and keeping lead,
+  stop, brake, regen, auto-hold, model-brake, and override vetoes hard.
+- Bumped Brickpilot brand/version metadata and longitudinal version code to
+  `40800`.
+
+### Validation
+
+- Ran fresh route-level steering and longitudinal sweeps over the corrected
+  0.4.x corpus, including the true 0.4.7 labeled route and corrected 0.4.6
+  normal drives.
+- Completed a fresh 2M VM replay steering sweep for 0.4.8 candidate ranking
+  using the existing 35-segment replay corpus. The old 0.4.6 VM winner remained
+  the top pure replay road-budget candidate, so 0.4.8 intentionally tests a
+  broader root-cause package instead of another final-filter-only replay winner.
+- Covered by `selfdrive/controls/tests/test_tucson_low_speed_torque_smoothing.py`.
+- Covered by `selfdrive/controls/tests/test_brickpilot_longitudinal.py`.
+- Covered by
+  `opendbc_repo/opendbc/car/hyundai/tests/test_tucson_canfd_damping_gain.py`.
+
 ## 0.4.7 - 2026-05-18
 
 Staging test build from a targeted return-to-center steering sweep over the

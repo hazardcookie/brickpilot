@@ -8,8 +8,13 @@ from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   BRICKPILOT_LONGITUDINAL_VERSION_CODE,
   BrickpilotLongitudinalSuppressor,
   EXP_SOURCE_MIN_DEFICIT,
+  EXP_SOURCE_MIN_TRAJECTORY_DEFICIT,
   EXP_SOURCE_MIN_SPEED,
   EXP_SOURCE_MAX_ASSIST_DELTA,
+  HIGH_CONF_RAMP_MAX_ASSIST_DELTA,
+  HIGH_CONF_RAMP_MIN_DEFICIT,
+  HIGH_CONF_RAMP_MIN_SPEED,
+  HIGH_CONF_RAMP_MIN_TRAJECTORY_DEFICIT,
   MAX_ASSIST_DELTA,
   MAX_ASSISTED_A_TARGET,
   MIN_CATCHUP_SPEED_DEFICIT,
@@ -160,19 +165,24 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_047_keeps_ramp_exp_behavior_and_marks_return_glide_build(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.7")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40700)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_047_ramp4_exp5_returnglide_damp140")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 4214335218)
+  def test_048_marks_friction_two_stage_yololite_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.8")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40800)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_048_friction_twostage_yololite_damp170")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3268147089)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)
     self.assertAlmostEqual(RAMP_CATCHUP_MIN_DEFICIT, 4.0 * 0.44704, places=5)
     self.assertAlmostEqual(RAMP_CATCHUP_MAX_ASSIST_DELTA, 1.080)
     self.assertAlmostEqual(RAMP_CATCHUP_ASSIST_BONUS, 0.260)
-    self.assertAlmostEqual(EXP_SOURCE_MIN_SPEED, 30.0 * 0.44704, places=5)
+    self.assertAlmostEqual(HIGH_CONF_RAMP_MIN_SPEED, 38.0 * 0.44704, places=5)
+    self.assertAlmostEqual(HIGH_CONF_RAMP_MIN_DEFICIT, 7.0 * 0.44704, places=5)
+    self.assertAlmostEqual(HIGH_CONF_RAMP_MIN_TRAJECTORY_DEFICIT, 1.5 * 0.44704, places=5)
+    self.assertAlmostEqual(HIGH_CONF_RAMP_MAX_ASSIST_DELTA, 1.140)
+    self.assertAlmostEqual(EXP_SOURCE_MIN_SPEED, 27.0 * 0.44704, places=5)
     self.assertAlmostEqual(EXP_SOURCE_MIN_DEFICIT, 5.0 * 0.44704, places=5)
+    self.assertAlmostEqual(EXP_SOURCE_MIN_TRAJECTORY_DEFICIT, 1.0 * 0.44704, places=5)
     self.assertAlmostEqual(EXP_SOURCE_MAX_ASSIST_DELTA, 0.860)
     self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 2.000)
     self.assertAlmostEqual(BRICKPILOT_HOLD_SECONDS, 2.050)
@@ -210,7 +220,7 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertTrue(state.planner_floor_shadow_candidate)
     self.assertIn(BrickpilotLongitudinalSuppressor.PLANNER_NOT_POSITIVE, state.suppressors)
     self.assertGreaterEqual(state.assisted_a_target, PLANNER_FLOOR_LIVE_ACCEL)
-    self.assertLessEqual(state.assist_delta, RAMP_CATCHUP_MAX_ASSIST_DELTA + 1e-9)
+    self.assertLessEqual(state.assist_delta, HIGH_CONF_RAMP_MAX_ASSIST_DELTA + 1e-9)
 
   def test_planner_floor_does_not_override_braking_planner(self):
     state = self.run_assist(plan=LongPlan(aTarget=-0.05, speeds=[20.0, 23.5, 25.0, 27.0]))
@@ -247,6 +257,20 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertLessEqual(state.assist_delta, RAMP_CATCHUP_MAX_ASSIST_DELTA + 1e-9)
     self.assertLessEqual(state.assisted_a_target, MAX_ASSISTED_A_TARGET)
 
+  def test_high_deficit_ramp_requires_trajectory_confirmation(self):
+    ramp = CS(vEgo=40.0 * 0.44704, vCruise=115.0)
+    set_speed_only = LongPlan(aTarget=0.55, speeds=[40.0 * 0.44704, 40.8 * 0.44704])
+    confirmed = LongPlan(aTarget=0.55, speeds=[40.0 * 0.44704, 42.2 * 0.44704, 43.0 * 0.44704])
+
+    set_speed_state = self.run_assist(cs=ramp, plan=set_speed_only)
+    confirmed_state = self.run_assist(cs=ramp, plan=confirmed)
+
+    self.assertTrue(set_speed_state.active)
+    self.assertLessEqual(set_speed_state.assist_delta, RAMP_CATCHUP_MAX_ASSIST_DELTA + 1e-9)
+    self.assertTrue(confirmed_state.active)
+    self.assertGreater(confirmed_state.assist_delta, RAMP_CATCHUP_MAX_ASSIST_DELTA)
+    self.assertLessEqual(confirmed_state.assist_delta, HIGH_CONF_RAMP_MAX_ASSIST_DELTA + 1e-9)
+
   def test_e2e_high_deficit_bridge_gets_live_bounded_assist(self):
     ramp = CS(vEgo=45.0 * 0.44704, vCruise=115.0)
     e2e_plan = LongPlan(aTarget=0.10, longitudinalPlanSource="e2e",
@@ -259,16 +283,26 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertLessEqual(state.assist_delta, EXP_SOURCE_MAX_ASSIST_DELTA + 1e-9)
     self.assertGreaterEqual(state.assisted_a_target, PLANNER_FLOOR_LIVE_ACCEL)
 
-  def test_e2e_bridge_reaches_30_mph_exp_ramp_threshold(self):
-    ramp = CS(vEgo=31.0 * 0.44704, vCruise=95.0)
+  def test_e2e_bridge_reaches_27_mph_exp_ramp_threshold(self):
+    ramp = CS(vEgo=28.0 * 0.44704, vCruise=95.0)
     e2e_plan = LongPlan(aTarget=0.10, longitudinalPlanSource="e2e",
-                        speeds=[31.0 * 0.44704, 32.0 * 0.44704])
+                        speeds=[28.0 * 0.44704, 34.0 * 0.44704])
 
     state = self.run_assist(cs=ramp, plan=e2e_plan)
 
     self.assertTrue(state.active)
     self.assertNotIn(BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE, state.suppressors)
     self.assertLessEqual(state.assist_delta, EXP_SOURCE_MAX_ASSIST_DELTA + 1e-9)
+
+  def test_e2e_bridge_requires_trajectory_confirmation(self):
+    ramp = CS(vEgo=35.0 * 0.44704, vCruise=115.0)
+    set_speed_only = LongPlan(aTarget=0.30, longitudinalPlanSource="e2e",
+                              speeds=[35.0 * 0.44704, 35.4 * 0.44704])
+
+    state = self.run_assist(cs=ramp, plan=set_speed_only)
+
+    self.assertFalse(state.active)
+    self.assertIn(BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE, state.suppressors)
 
   def test_e2e_bridge_keeps_low_speed_or_weak_deficit_shadow_only(self):
     weak_e2e = LongPlan(longitudinalPlanSource="e2e", speeds=[20.0, 20.5])

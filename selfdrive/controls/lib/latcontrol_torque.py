@@ -4,7 +4,9 @@ from collections import deque
 
 from cereal import log
 from opendbc.car.lateral import FRICTION_THRESHOLD, get_friction
+from opendbc.car.hyundai.values import CAR, HyundaiFlags
 from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY
+from openpilot.common.constants import CV
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.common.pid import PIDController
@@ -31,8 +33,49 @@ KP_INTERP = [250, 120, 65, 30, 11.5, 5.5, 3.5, 2.0, KP]
 LP_FILTER_CUTOFF_HZ = 1.2
 JERK_LOOKAHEAD_SECONDS = 0.19
 JERK_GAIN = 0.3
+TUCSON_CANFD_FRICTION_SHAPING_SPEED = 62.0 * CV.MPH_TO_MS
+TUCSON_CANFD_FRICTION_RETURN_ACCEL = 0.75
+TUCSON_CANFD_FRICTION_NEAR_ZERO_ACCEL = 0.30
+TUCSON_CANFD_FRICTION_RETURN_JERK_SCALE = 0.45
+TUCSON_CANFD_FRICTION_NEAR_ZERO_JERK_SCALE = 0.30
+TUCSON_CANFD_FRICTION_RETURN_INPUT_SCALE = 0.70
+TUCSON_CANFD_FRICTION_NEAR_ZERO_INPUT_SCALE = 0.50
 LAT_ACCEL_REQUEST_BUFFER_SECONDS = 1.0
 VERSION = 1
+
+
+def is_tucson_canfd_torque_texture_scope(CP) -> bool:
+  return bool(getattr(CP, "carFingerprint", None) == CAR.HYUNDAI_TUCSON_4TH_GEN and
+              getattr(CP, "flags", 0) & HyundaiFlags.CANFD)
+
+
+def tucson_canfd_friction_input(CP, v_ego: float, error: float, desired_lateral_jerk: float,
+                                setpoint: float, future_desired_lateral_accel: float) -> float:
+  jerk_term = JERK_GAIN * desired_lateral_jerk
+  if not is_tucson_canfd_torque_texture_scope(CP) or v_ego >= TUCSON_CANFD_FRICTION_SHAPING_SPEED:
+    return error + jerk_term
+
+  same_direction = setpoint * future_desired_lateral_accel >= 0.0
+  returning_to_center = same_direction and abs(future_desired_lateral_accel) < abs(setpoint)
+  near_center = abs(future_desired_lateral_accel) <= TUCSON_CANFD_FRICTION_NEAR_ZERO_ACCEL
+
+  jerk_scale = 1.0
+  input_scale = 1.0
+  if returning_to_center and abs(future_desired_lateral_accel) <= TUCSON_CANFD_FRICTION_RETURN_ACCEL:
+    jerk_scale = min(jerk_scale, TUCSON_CANFD_FRICTION_RETURN_JERK_SCALE)
+    input_scale = min(input_scale, TUCSON_CANFD_FRICTION_RETURN_INPUT_SCALE)
+  if near_center and abs(setpoint) <= TUCSON_CANFD_FRICTION_RETURN_ACCEL:
+    jerk_scale = min(jerk_scale, TUCSON_CANFD_FRICTION_NEAR_ZERO_JERK_SCALE)
+    input_scale = min(input_scale, TUCSON_CANFD_FRICTION_NEAR_ZERO_INPUT_SCALE)
+
+  shaped = error + jerk_term * jerk_scale
+  if input_scale < 1.0:
+    # Near center, do not let the jerk feedforward flip friction direction while
+    # the lateral error is tiny; that creates visible step-release texture.
+    if abs(error) < TUCSON_CANFD_FRICTION_NEAR_ZERO_ACCEL and error != 0.0 and shaped * error < 0.0:
+      shaped = error
+    shaped *= input_scale
+  return shaped
 
 class LatControlTorque(LatControl):
   def __init__(self, CP, CP_SP, CI, dt):
@@ -88,7 +131,8 @@ class LatControlTorque(LatControl):
     ff = gravity_adjusted_future_lateral_accel
     # latAccelOffset corrects roll compensation bias from device roll misalignment relative to car roll
     ff -= self.torque_params.latAccelOffset
-    ff += get_friction(error + JERK_GAIN * desired_lateral_jerk, lateral_accel_deadzone, FRICTION_THRESHOLD, self.torque_params)
+    friction_input = tucson_canfd_friction_input(self.CP, CS.vEgo, error, desired_lateral_jerk, setpoint, future_desired_lateral_accel)
+    ff += get_friction(friction_input, lateral_accel_deadzone, FRICTION_THRESHOLD, self.torque_params)
 
     if not active:
       output_torque = 0.0

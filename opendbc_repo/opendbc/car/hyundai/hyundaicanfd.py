@@ -5,7 +5,7 @@ from opendbc.car.hyundai.values import CAR, HyundaiFlags
 from opendbc.sunnypilot.car.hyundai.lead_data_ext import CanFdLeadData
 
 
-BRICKPILOT_TUCSON_CANFD_DAMPING_GAIN = 140
+BRICKPILOT_TUCSON_CANFD_DAMPING_GAIN = 170
 
 
 class CanBus(CanBusBase):
