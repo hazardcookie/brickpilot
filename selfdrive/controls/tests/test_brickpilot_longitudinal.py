@@ -179,7 +179,7 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
   def test_050_marks_stop_debt_follow_policy_build(self):
     self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.0")
     self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50000)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_050_beta_stop_debt_follow_policy")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_050_stop_debt_follow_policy")
     self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3544857708)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)

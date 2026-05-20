@@ -78,12 +78,12 @@ class BrickpilotLongitudinalAssistState:
   stop_distance_buffer: float = 0.0
 
 
-# Brickpilot 0.5.0-beta keeps the stable 0.4.9 steering/MADS baseline and
-# adds stop-debt / PHEV brake-state diagnosis plus bounded lead/model stop
-# support. The version code rides in shadow telemetry for route attribution.
+# Brickpilot 0.5.0 keeps the stable 0.4.9 steering/MADS baseline and adds
+# stop-debt / PHEV brake-state diagnosis plus bounded lead/model stop support.
+# The version code rides in shadow telemetry for route attribution.
 BRICKPILOT_LONGITUDINAL_VERSION = "0.5.0"
 BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50000
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_050_beta_stop_debt_follow_policy"
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_050_stop_debt_follow_policy"
 ULTIMATE_100K_CANDIDATE_HASH = 3544857708
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000

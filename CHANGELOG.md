@@ -5,11 +5,10 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
-## 0.5.0-beta - 2026-05-20
+## 0.5.0 - 2026-05-20
 
-Staging beta build focused on Tucson PHEV braking adequacy, lead-stop
-confidence, and stop-debug attribution while keeping the stable 0.4.9 steering
-baseline.
+Release build focused on Tucson PHEV braking adequacy, lead-stop confidence,
+and stop-debug attribution while keeping the stable 0.4.9 steering baseline.
 
 ### Final Build Plan
 
@@ -32,7 +31,7 @@ baseline.
 
 - Bumped Brickpilot brand/version metadata and longitudinal shadow version code
   to `50000`.
-- Added `0.5.0-beta` stop-debug telemetry in `brickpilotShadow`: stop source,
+- Added `0.5.0` stop-debug telemetry in `brickpilotShadow`: stop source,
   PHEV brake state, stop active/shadow flags, required decel, planner debt,
   controller debt, brake debt, TTC, signed stop assist delta, and the low-speed
   stopped-distance buffer.

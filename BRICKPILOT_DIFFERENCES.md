@@ -153,8 +153,8 @@ the torque-extension output. After release, torque returns through a short
 future routes can score manual high-angle turns without adding a new telemetry
 schema.
 
-In 0.5.0-beta, Brickpilot freezes the 0.4.9 steering baseline and shifts the
-live experiment toward braking attribution and lead-follow stop confidence. It
+In 0.5.0, Brickpilot freezes the 0.4.9 steering baseline and shifts the live
+experiment toward braking attribution and lead-follow stop confidence. It
 adds a Tucson PHEV stop-debt path that compares required lead/model/stop decel,
 planner target decel, and measured vehicle decel, then can make a bounded
 negative `aTarget` adjustment only when openpilot already has a lead, model, or
