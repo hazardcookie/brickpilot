@@ -920,6 +920,17 @@ struct ControlsState @0x97ff69c53601abf1 {
     steeringGuardAngleDeg @49 :Float32;
     steeringGuardRecoveryAngleDeg @50 :Float32;
     steeringGuardUpstreamWouldSuppress @51 :Bool;
+    stopSource @52 :UInt8;          # 0 none, 1 lead, 2 model, 3 shouldStop, 4 creep/final hold
+    stopBrakeState @53 :UInt8;      # 0 none, 1 light regen, 2 brake blend, 3 friction candidate, 4 stationary hold
+    stopActive @54 :Bool;
+    stopShadowCandidate @55 :Bool;
+    stopRequiredDecel @56 :Float32; # negative m/s^2 target estimated from lead/model stop context
+    stopPlannerDebt @57 :Float32;   # required decel magnitude not requested by planner
+    stopControllerDebt @58 :Float32;# planner decel magnitude not delivered by vehicle
+    stopBrakeDebt @59 :Float32;     # required decel magnitude not delivered by vehicle
+    stopTtc @60 :Float32;           # lead time-to-collision seconds, 0 when unavailable
+    stopAssistDelta @61 :Float32;   # signed change from planner aTarget; negative when Brickpilot helps braking
+    stopDistanceBuffer @62 :Float32;
   }
 
   deprecated :group {

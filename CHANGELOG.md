@@ -5,6 +5,59 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.0-beta - 2026-05-20
+
+Staging beta build focused on Tucson PHEV braking adequacy, lead-stop
+confidence, and stop-debug attribution while keeping the stable 0.4.9 steering
+baseline.
+
+### Final Build Plan
+
+- Freeze the 0.4.9 MADS/manual-steering and Tucson CAN-FD steering texture
+  baseline unless road data shows a regression.
+- Split PHEV braking context into light regen/coast, regen/brake blend,
+  friction-brake candidate, and stationary/Auto Hold instead of treating all
+  regen/brake-like CAN activity as enough stopping authority.
+- Add a stop-debt path that classifies lead/model stop situations into planner
+  debt, controller debt, brake debt, and creep/final-hold debt.
+- Allow a bounded negative `aTarget` assist only when openpilot longitudinal is
+  already active and the lead/model/shouldStop context already calls for
+  braking. This does not add no-lead stop-sign or stoplight promises.
+- Keep the invariant that PHEV regen/brake vetoes can block positive catch-up
+  energy, but must not block required deceleration.
+- Require low vehicle speed before using `0x0BA.b14` as stationary/Auto Hold,
+  so moving brake/regen windows do not masquerade as stationary.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal shadow version code
+  to `50000`.
+- Added `0.5.0-beta` stop-debug telemetry in `brickpilotShadow`: stop source,
+  PHEV brake state, stop active/shadow flags, required decel, planner debt,
+  controller debt, brake debt, TTC, signed stop assist delta, and the low-speed
+  stopped-distance buffer.
+- Added bounded Tucson PHEV stop-debt assist. In lead/model/shouldStop contexts
+  below 25 mph, if required decel exceeds both the planner request and measured
+  vehicle decel, Brickpilot may lower the `aTarget` passed into LongControl by a
+  capped amount before normal LongControl, actuator limits, and Hyundai safety
+  paths run.
+- Added a crawl/final-stop completion branch for lead `shouldStop` contexts
+  below 4 mph so weak PHEV coast regen does not let the car creep instead of
+  finishing the stop.
+- Added low-speed lead stop buffer logic to improve stop confidence before
+  changing broad braking authority.
+- Added extra PHEV/brake candidate logs for `0x0FA.b7` and `0x065.b3/b14`.
+- Bumped the PHEV CAN logger version to `50000`.
+
+### Validation
+
+- Added regression coverage for the 0.5.0 version marker, stop-debt activation,
+  light-regen-not-enough behavior, crawl stop completion, stationary/Auto Hold
+  speed gating, and the invariant that regen/brake vetoes do not block required
+  decel.
+- Added candidate logger coverage for the new `0x0FA.b7` and `0x065.b3/b14`
+  fields.
+
 ## 0.4.9 - 2026-05-19
 
 Staging R&D build from the 0.4.8 route review, manual-steering/MADS road

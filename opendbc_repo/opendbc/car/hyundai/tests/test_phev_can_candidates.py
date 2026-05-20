@@ -25,6 +25,8 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   fa_bus130 = bytearray(24)
   fa_bus0[4] = 253
   fa_bus130[4] = 253
+  fa_bus0[7] = 129
+  fa_bus130[7] = 129
 
   e0 = bytearray(24)
   e0[8:10] = (-1000).to_bytes(2, "little", signed=True)
@@ -47,8 +49,10 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   a120 = bytearray(24)
   a120[3] = 145
   brake = bytearray(24)
+  brake[3] = 33
   brake[9] = 144
   brake[10] = 145
+  brake[14] = 66
   adas = bytearray(24)
   adas[17] = 226
   adas[18] = 255
@@ -88,6 +92,12 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   assert ret_sp.brickpilotPhevFaB4U8Bus130 == 253
   assert ret_sp.brickpilotPhevFaB4S8Bus130 == -3
   assert ret_sp.brickpilotPhevFaB4MirrorConsistent
+  assert ret_sp.brickpilotPhevFaB7U8 == 129
+  assert ret_sp.brickpilotPhevFaB7S8 == -127
+  assert ret_sp.brickpilotPhevFaB7U8Bus0 == 129
+  assert ret_sp.brickpilotPhevFaB7S8Bus0 == -127
+  assert ret_sp.brickpilotPhevFaB7U8Bus130 == 129
+  assert ret_sp.brickpilotPhevFaB7S8Bus130 == -127
 
   assert ret_sp.brickpilotPhevE0S16Byte08Le == -1000
   assert ret_sp.brickpilotPhevE0S16Byte10Le == 32000
@@ -104,8 +114,10 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   assert ret_sp.brickpilotPhev10AB10U8 == 241
   assert ret_sp.brickpilotPhev10AB18U8 == 12
   assert ret_sp.brickpilotPhev120B3U8 == 145
+  assert ret_sp.brickpilotBrake065B3U8 == 33
   assert ret_sp.brickpilotBrake065B9U8 == 144
   assert ret_sp.brickpilotBrake065B10U8 == 145
+  assert ret_sp.brickpilotBrake065B14U8 == 66
   assert ret_sp.brickpilotAdas310B17U8 == 226
   assert ret_sp.brickpilotAdas310B18U8 == 255
 

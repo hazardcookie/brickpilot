@@ -19,7 +19,7 @@ ButtonType = structs.CarState.ButtonEvent.Type
 PREV_BUTTON_SAMPLES = 8
 CLUSTER_SAMPLE_RATE = 20  # frames
 STANDSTILL_THRESHOLD = 12 * 0.03125
-BRICKPILOT_PHEV_CAN_LOGGER_VERSION = 40400
+BRICKPILOT_PHEV_CAN_LOGGER_VERSION = 50000
 
 BRICKPILOT_PHEV_CANDIDATE_BITS = {
   0x0FA: 1 << 0,
@@ -187,6 +187,12 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
     ret_sp.brickpilotPhevFaB4S8Bus130 = self._brickpilot_phev_s8(fa_bus130, 4)
     ret_sp.brickpilotPhevFaB4MirrorConsistent = bool(fa_bus0 is not None and fa_bus130 is not None and
                                                      self._brickpilot_phev_u8(fa_bus0, 4) == self._brickpilot_phev_u8(fa_bus130, 4))
+    ret_sp.brickpilotPhevFaB7U8 = self._brickpilot_phev_u8(fa_dat, 7)
+    ret_sp.brickpilotPhevFaB7S8 = self._brickpilot_phev_s8(fa_dat, 7)
+    ret_sp.brickpilotPhevFaB7U8Bus0 = self._brickpilot_phev_u8(fa_bus0, 7)
+    ret_sp.brickpilotPhevFaB7S8Bus0 = self._brickpilot_phev_s8(fa_bus0, 7)
+    ret_sp.brickpilotPhevFaB7U8Bus130 = self._brickpilot_phev_u8(fa_bus130, 7)
+    ret_sp.brickpilotPhevFaB7S8Bus130 = self._brickpilot_phev_s8(fa_bus130, 7)
 
     e0_dat, _ = self._brickpilot_phev_select_candidate_frame(0x0E0)
     ba_dat, _ = self._brickpilot_phev_select_candidate_frame(0x0BA)
@@ -207,8 +213,10 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
     ret_sp.brickpilotPhev10AB10U8 = self._brickpilot_phev_u8(a10_dat, 10)
     ret_sp.brickpilotPhev10AB18U8 = self._brickpilot_phev_u8(a10_dat, 18)
     ret_sp.brickpilotPhev120B3U8 = self._brickpilot_phev_u8(a120_dat, 3)
+    ret_sp.brickpilotBrake065B3U8 = self._brickpilot_phev_u8(brake_dat, 3)
     ret_sp.brickpilotBrake065B9U8 = self._brickpilot_phev_u8(brake_dat, 9)
     ret_sp.brickpilotBrake065B10U8 = self._brickpilot_phev_u8(brake_dat, 10)
+    ret_sp.brickpilotBrake065B14U8 = self._brickpilot_phev_u8(brake_dat, 14)
     ret_sp.brickpilotAdas310B17U8 = self._brickpilot_phev_u8(adas_dat, 17)
     ret_sp.brickpilotAdas310B18U8 = self._brickpilot_phev_u8(adas_dat, 18)
     ret_sp.brickpilotPhev1A5B14U8 = self._brickpilot_phev_u8(a5_dat, 14)

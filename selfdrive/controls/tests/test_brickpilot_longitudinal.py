@@ -19,10 +19,16 @@ from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   MAX_ASSISTED_A_TARGET,
   MIN_CATCHUP_SPEED_DEFICIT,
   MIN_SET_SPEED_DEFICIT_SPEED,
+  PHEV_BRAKE_STATE_FRICTION_BRAKE_CANDIDATE,
+  PHEV_BRAKE_STATE_REGEN_LIGHT_COAST,
+  PHEV_BRAKE_STATE_STATIONARY_HOLD,
   PLANNER_FLOOR_LIVE_ACCEL,
   RAMP_CATCHUP_ASSIST_BONUS,
   RAMP_CATCHUP_MAX_ASSIST_DELTA,
   RAMP_CATCHUP_MIN_DEFICIT,
+  STOP_SOURCE_CREEP,
+  STOP_SOURCE_LEAD,
+  STOP_SOURCE_SHOULD_STOP,
   ULTIMATE_100K_CANDIDATE_ID,
   ULTIMATE_100K_CANDIDATE_HASH,
   brickpilot_tucson_longitudinal_assist,
@@ -146,14 +152,19 @@ class LongitudinalPlanSP:
 
 @dataclass
 class CarStateSP:
-  brickpilotPhevCanLoggerVersion: int = 40400
+  brickpilotPhevCanLoggerVersion: int = 50000
   brickpilotPhevCanCandidatePresentMask: int = 0x1
   brickpilotPhevHybridFlagSet: bool = True
   brickpilotPhevFaB4U8: int = 0
   brickpilotPhevFaB4U8Bus0: int = 0
   brickpilotPhevFaB4U8Bus130: int = 0
+  brickpilotPhevFaB7U8: int = 0
+  brickpilotPhevFaB7U8Bus0: int = 0
+  brickpilotPhevFaB7U8Bus130: int = 0
+  brickpilotBrake065B3U8: int = 0
   brickpilotBrake065B9U8: int = 0
   brickpilotPhevBaB14U8: int = 0
+  brickpilotBrake065B14U8: int = 0
 
 
 class TestBrickpilotLongitudinalAssist(unittest.TestCase):
@@ -165,11 +176,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_049_marks_mads_manual_high_angle_isolation_build(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.4.9")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 40900)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_049_mads_manual_high_angle_isolation")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 2056193228)
+  def test_050_marks_stop_debt_follow_policy_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.0")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50000)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_050_beta_stop_debt_follow_policy")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3544857708)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)
@@ -370,11 +381,101 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
         self.assertIn(BrickpilotLongitudinalSuppressor.PHEV_REGEN_OR_BRAKE, state.suppressors)
         self.assertEqual(state.assisted_a_target, state.a_target)
 
+  def test_phev_regen_veto_does_not_block_required_stop_decel(self):
+    lead_stop = LongPlan(aTarget=-0.05, shouldStop=True, longitudinalPlanSource="lead0", speeds=[4.0, 2.0, 0.0])
+    creeping = CS(vEgo=3.0, aEgo=-0.05, vCruise=45.0)
+    radar = RadarState(Lead(status=True, dRel=9.0, vRel=-2.0))
+
+    state = self.run_assist(cs=creeping, plan=lead_stop, radar=radar,
+                            car_state_sp=CarStateSP(brickpilotPhevFaB4U8=220))
+
+    self.assertTrue(state.active)
+    self.assertTrue(state.stop_active)
+    self.assertEqual(state.stop_source, STOP_SOURCE_LEAD)
+    self.assertIn(BrickpilotLongitudinalSuppressor.PHEV_REGEN_OR_BRAKE, state.suppressors)
+    self.assertLess(state.assisted_a_target, state.a_target)
+    self.assertLess(state.stop_assist_delta, 0.0)
+
+  def test_light_regen_is_logged_as_not_enough_when_stop_debt_exists(self):
+    lead_stop = LongPlan(aTarget=0.0, shouldStop=True, longitudinalPlanSource="lead0", speeds=[5.0, 3.0, 0.0])
+    creeping = CS(vEgo=4.0, aEgo=-0.04, vCruise=45.0)
+    radar = RadarState(Lead(status=True, dRel=11.0, vRel=-1.0))
+
+    state = self.run_assist(cs=creeping, plan=lead_stop, radar=radar,
+                            car_state_sp=CarStateSP(brickpilotPhevFaB7U8=4))
+
+    self.assertTrue(state.stop_active)
+    self.assertEqual(state.stop_brake_state, PHEV_BRAKE_STATE_REGEN_LIGHT_COAST)
+    self.assertGreater(state.stop_brake_debt, 0.0)
+    self.assertLess(state.assisted_a_target, state.a_target)
+
+  def test_lead_stop_debt_can_lower_weak_planner_target(self):
+    weak_plan = LongPlan(aTarget=0.05, longitudinalPlanSource="lead0", speeds=[7.0, 6.0, 4.0])
+    closing = CS(vEgo=6.0, aEgo=-0.10, vCruise=45.0)
+    radar = RadarState(Lead(status=True, dRel=13.0, vRel=-2.2))
+
+    state = self.run_assist(cs=closing, plan=weak_plan, radar=radar)
+
+    self.assertTrue(state.stop_active)
+    self.assertEqual(state.stop_source, STOP_SOURCE_LEAD)
+    self.assertGreater(state.stop_planner_debt, 0.0)
+    self.assertLess(state.assisted_a_target, state.a_target)
+
+  def test_should_stop_without_lead_gets_diagnostic_floor_not_stoplight_heroics(self):
+    stop_plan = LongPlan(aTarget=-0.05, shouldStop=True, longitudinalPlanSource="cruise", speeds=[5.0, 2.0, 0.0])
+    state = self.run_assist(cs=CS(vEgo=5.0, aEgo=-0.02, vCruise=45.0), plan=stop_plan)
+
+    self.assertTrue(state.stop_active)
+    self.assertEqual(state.stop_source, STOP_SOURCE_SHOULD_STOP)
+    self.assertGreaterEqual(abs(state.stop_required_decel), 0.35)
+    self.assertLess(state.assisted_a_target, state.a_target)
+
+  def test_crawl_stop_gets_final_stop_completion_target(self):
+    crawl_plan = LongPlan(aTarget=-0.05, shouldStop=True, longitudinalPlanSource="lead0", speeds=[1.0, 0.2, 0.0])
+    crawl = CS(vEgo=1.0, aEgo=-0.03, vCruise=25.0)
+    radar = RadarState(Lead(status=True, dRel=6.0, vRel=-0.5))
+
+    state = self.run_assist(cs=crawl, plan=crawl_plan, radar=radar)
+
+    self.assertTrue(state.stop_active)
+    self.assertEqual(state.stop_source, STOP_SOURCE_CREEP)
+    self.assertLessEqual(state.assisted_a_target, -0.5)
+
+  def test_no_lead_no_stop_intent_does_not_create_braking_assist(self):
+    coast_plan = LongPlan(aTarget=-0.35, shouldStop=False, longitudinalPlanSource="cruise", speeds=[8.0, 7.5, 7.0])
+    state = self.run_assist(cs=CS(vEgo=8.0, aEgo=-0.1, vCruise=40.0), plan=coast_plan)
+
+    self.assertFalse(state.stop_active)
+    self.assertEqual(state.assisted_a_target, state.a_target)
+
+  def test_stop_debt_assist_blocks_on_high_lateral_demand(self):
+    weak_plan = LongPlan(aTarget=0.05, longitudinalPlanSource="lead0", speeds=[7.0, 6.0, 4.0])
+    closing = CS(vEgo=6.0, aEgo=-0.10, vCruise=45.0)
+    radar = RadarState(Lead(status=True, dRel=13.0, vRel=-2.2))
+
+    state = self.run_assist(cs=closing, plan=weak_plan, radar=radar, curvature=0.03)
+
+    self.assertFalse(state.stop_active)
+    self.assertTrue(state.stop_shadow_candidate)
+    self.assertEqual(state.assisted_a_target, state.a_target)
+
   def test_phev_auto_hold_can_state_suppresses_live_assist(self):
-    state = self.run_assist(car_state_sp=CarStateSP(brickpilotPhevBaB14U8=1))
+    state = self.run_assist(cs=CS(vEgo=0.2, vCruise=35.0), car_state_sp=CarStateSP(brickpilotPhevBaB14U8=1))
     self.assertFalse(state.active)
     self.assertIn(BrickpilotLongitudinalSuppressor.PHEV_STATIONARY_OR_AUTO_HOLD, state.suppressors)
     self.assertEqual(state.assisted_a_target, state.a_target)
+    self.assertEqual(state.stop_brake_state, PHEV_BRAKE_STATE_STATIONARY_HOLD)
+
+  def test_auto_hold_candidate_requires_near_zero_speed(self):
+    state = self.run_assist(car_state_sp=CarStateSP(brickpilotPhevBaB14U8=1))
+    self.assertTrue(state.active)
+    self.assertNotIn(BrickpilotLongitudinalSuppressor.PHEV_STATIONARY_OR_AUTO_HOLD, state.suppressors)
+
+  def test_brake065_friction_candidate_is_logged_and_suppresses_positive_assist(self):
+    state = self.run_assist(car_state_sp=CarStateSP(brickpilotBrake065B3U8=25))
+    self.assertFalse(state.active)
+    self.assertIn(BrickpilotLongitudinalSuppressor.PHEV_REGEN_OR_BRAKE, state.suppressors)
+    self.assertEqual(state.stop_brake_state, PHEV_BRAKE_STATE_FRICTION_BRAKE_CANDIDATE)
 
   def test_phev_can_guard_requires_logger_and_phev_runtime(self):
     cases = [

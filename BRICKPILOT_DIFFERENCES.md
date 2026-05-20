@@ -153,6 +153,18 @@ the torque-extension output. After release, torque returns through a short
 future routes can score manual high-angle turns without adding a new telemetry
 schema.
 
+In 0.5.0-beta, Brickpilot freezes the 0.4.9 steering baseline and shifts the
+live experiment toward braking attribution and lead-follow stop confidence. It
+adds a Tucson PHEV stop-debt path that compares required lead/model/stop decel,
+planner target decel, and measured vehicle decel, then can make a bounded
+negative `aTarget` adjustment only when openpilot already has a lead, model, or
+should-stop context. This is not a no-lead traffic-light or stop-sign feature.
+PHEV regen/brake CAN activity may still block positive catch-up assist, but it
+must not block required deceleration. `0x0BA.b14` is no longer treated as
+stationary/auto-hold unless vehicle speed is near zero, and the logged brake
+state now separates light coast regen, regen/brake blend, friction-brake
+candidate, and stationary hold.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
