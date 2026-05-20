@@ -26,6 +26,10 @@ from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   RAMP_CATCHUP_ASSIST_BONUS,
   RAMP_CATCHUP_MAX_ASSIST_DELTA,
   RAMP_CATCHUP_MIN_DEFICIT,
+  STOP_DEBT_BUCKET_CONTROLLER_UNDERBRAKE,
+  STOP_DEBT_BUCKET_INVALID_GEOMETRY,
+  STOP_DEBT_BUCKET_PLANNER_LATE,
+  STOP_INVALID_FAR_NONCLOSING_LEAD,
   STOP_SOURCE_CREEP,
   STOP_SOURCE_LEAD,
   STOP_SOURCE_SHOULD_STOP,
@@ -176,11 +180,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_050_marks_stop_debt_follow_policy_build(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.0")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50000)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_050_stop_debt_follow_policy")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 3544857708)
+  def test_051_marks_valid_stop_stack_follow_policy_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.1")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50100)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_051_valid_stop_stack_follow_policy")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 2185689795)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)
@@ -420,6 +424,37 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertEqual(state.stop_source, STOP_SOURCE_LEAD)
     self.assertGreater(state.stop_planner_debt, 0.0)
     self.assertLess(state.assisted_a_target, state.a_target)
+    self.assertTrue(state.stop_required_decel_valid)
+    self.assertTrue(state.stop_ttc_valid)
+    self.assertEqual(state.stop_debt_bucket, STOP_DEBT_BUCKET_PLANNER_LATE)
+
+  def test_far_nonclosing_lead_does_not_create_stop_debt_or_live_braking(self):
+    far_plan = LongPlan(aTarget=0.05, longitudinalPlanSource="lead0", speeds=[7.0, 7.2, 7.5])
+    cruising = CS(vEgo=7.0, aEgo=-0.02, vCruise=45.0)
+    radar = RadarState(Lead(status=True, dRel=32.0, vRel=-0.05))
+
+    state = self.run_assist(cs=cruising, plan=far_plan, radar=radar)
+
+    self.assertFalse(state.stop_active)
+    self.assertTrue(state.stop_shadow_candidate)
+    self.assertFalse(state.stop_required_decel_valid)
+    self.assertFalse(state.stop_ttc_valid)
+    self.assertEqual(state.stop_geometry_invalid_reason, STOP_INVALID_FAR_NONCLOSING_LEAD)
+    self.assertEqual(state.stop_debt_bucket, STOP_DEBT_BUCKET_INVALID_GEOMETRY)
+    self.assertEqual(state.stop_brake_debt, 0.0)
+    self.assertEqual(state.assisted_a_target, state.a_target)
+
+  def test_controller_underbrake_bucket_is_logged_for_valid_stop_response_gap(self):
+    braking_plan = LongPlan(aTarget=-0.80, longitudinalPlanSource="lead0", speeds=[6.0, 4.0, 1.0])
+    weak_response = CS(vEgo=6.0, aEgo=-0.10, vCruise=45.0)
+    radar = RadarState(Lead(status=True, dRel=12.0, vRel=-1.8))
+
+    state = self.run_assist(cs=weak_response, plan=braking_plan, radar=radar)
+
+    self.assertTrue(state.stop_active)
+    self.assertTrue(state.stop_required_decel_valid)
+    self.assertGreater(state.stop_controller_debt, 0.35)
+    self.assertEqual(state.stop_debt_bucket, STOP_DEBT_BUCKET_CONTROLLER_UNDERBRAKE)
 
   def test_should_stop_without_lead_gets_diagnostic_floor_not_stoplight_heroics(self):
     stop_plan = LongPlan(aTarget=-0.05, shouldStop=True, longitudinalPlanSource="cruise", speeds=[5.0, 2.0, 0.0])

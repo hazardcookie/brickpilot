@@ -40,6 +40,26 @@ STOP_SOURCE_MODEL = 2
 STOP_SOURCE_SHOULD_STOP = 3
 STOP_SOURCE_CREEP = 4
 
+STOP_PROFILE_STOCKISH_SHADOW = 0
+STOP_PROFILE_TUCSON_PHEV_STABLE = 1
+STOP_PROFILE_TUCSON_PHEV_TRAFFIC_SHADOW = 2
+
+STOP_INVALID_NONE = 0
+STOP_INVALID_NO_SOURCE = 1
+STOP_INVALID_NO_LEAD_GEOMETRY = 2
+STOP_INVALID_FAR_NONCLOSING_LEAD = 3
+STOP_INVALID_SPEED_RANGE = 4
+
+STOP_DEBT_BUCKET_NONE = 0
+STOP_DEBT_BUCKET_INVALID_GEOMETRY = 1
+STOP_DEBT_BUCKET_LEAD_CLOSE_CLOSING = 2
+STOP_DEBT_BUCKET_PLANNER_LATE = 3
+STOP_DEBT_BUCKET_CONTROLLER_UNDERBRAKE = 4
+STOP_DEBT_BUCKET_CREEP_HOLD = 5
+STOP_DEBT_BUCKET_REGEN_LIGHT_CONTEXT = 6
+STOP_DEBT_BUCKET_DRIVER_OVERRIDE = 7
+STOP_DEBT_BUCKET_STATIONARY_HOLD = 8
+
 PHEV_BRAKE_STATE_NONE = 0
 PHEV_BRAKE_STATE_REGEN_LIGHT_COAST = 1
 PHEV_BRAKE_STATE_REGEN_BRAKE_BLEND = 2
@@ -76,21 +96,32 @@ class BrickpilotLongitudinalAssistState:
   stop_ttc: float = 0.0
   stop_assist_delta: float = 0.0
   stop_distance_buffer: float = 0.0
+  stop_source_valid: bool = False
+  stop_required_decel_valid: bool = False
+  stop_ttc_valid: bool = False
+  stop_lead_distance: float = 0.0
+  stop_lead_v_rel: float = 0.0
+  stop_requested_decel: float = 0.0
+  stop_actual_decel: float = 0.0
+  stop_debt_bucket: int = STOP_DEBT_BUCKET_NONE
+  stop_geometry_invalid_reason: int = STOP_INVALID_NONE
+  stop_profile: int = STOP_PROFILE_TUCSON_PHEV_STABLE
 
 
-# Brickpilot 0.5.0 keeps the stable 0.4.9 steering/MADS baseline and adds
-# stop-debt / PHEV brake-state diagnosis plus bounded lead/model stop support.
-# The version code rides in shadow telemetry for route attribution.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.0"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50000
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_050_stop_debt_follow_policy"
-ULTIMATE_100K_CANDIDATE_HASH = 3544857708
+# Brickpilot 0.5.1 keeps the stable 0.5.0 steering baseline and makes the stop
+# stack more attribution-safe: invalid lead geometry no longer creates brake
+# debt, while valid Tucson PHEV low-speed lead/shouldStop contexts get a
+# bounded earlier stop target through the normal LongControl/safety path.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.1"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50100
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_051_valid_stop_stack_follow_policy"
+ULTIMATE_100K_CANDIDATE_HASH = 2185689795
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
 PHEV_BRAKE_065_B9_U8_THRESHOLD = 128
 PHEV_BA_B14_AUTO_HOLD_VALUE = 1
-PHEV_STATIONARY_HOLD_MAX_SPEED = 1.0 * CV.MPH_TO_MS
+PHEV_STATIONARY_HOLD_MAX_SPEED = 0.5 * CV.MPH_TO_MS
 PHEV_FA_B4_LIGHT_REGEN_MIN_U8 = 16
 PHEV_FA_B7_LIGHT_REGEN_MIN_U8 = 1
 PHEV_BRAKE_065_B3_FRICTION_MIN_U8 = 20
@@ -134,16 +165,18 @@ STOP_ASSIST_MAX_SPEED = 25.0 * CV.MPH_TO_MS
 STOP_ASSIST_MIN_SPEED = 0.6 * CV.MPH_TO_MS
 STOP_ASSIST_MAX_LATERAL_ACCEL = 0.75
 STOP_ASSIST_MIN_REQUIRED_DECEL = 0.35
-STOP_ASSIST_MIN_BRAKE_DEBT = 0.18
-STOP_ASSIST_MAX_EXTRA_DECEL = 0.58
-STOP_ASSIST_CRAWL_MAX_EXTRA_DECEL = 0.75
-STOP_ASSIST_MAX_TARGET_DECEL = 1.75
+STOP_ASSIST_MIN_BRAKE_DEBT = 0.15
+STOP_ASSIST_MAX_EXTRA_DECEL = 0.68
+STOP_ASSIST_CRAWL_MAX_EXTRA_DECEL = 0.82
+STOP_ASSIST_MAX_TARGET_DECEL = 1.85
 STOP_ASSIST_CRAWL_MAX_SPEED = 4.0 * CV.MPH_TO_MS
 STOP_ASSIST_CRAWL_TARGET_DECEL = 0.55
-STOP_ASSIST_LOW_SPEED_BUFFER = 5.5
-STOP_ASSIST_MID_SPEED_BUFFER = 4.0
-STOP_ASSIST_HIGH_SPEED_BUFFER = 3.0
+STOP_ASSIST_LOW_SPEED_BUFFER = 6.25
+STOP_ASSIST_MID_SPEED_BUFFER = 4.75
+STOP_ASSIST_HIGH_SPEED_BUFFER = 3.25
 STOP_ASSIST_MIN_STOP_DISTANCE = 1.0
+STOP_ASSIST_MAX_VALID_TTC = 10.0
+STOP_ASSIST_MIN_VALID_CLOSING_VREL = -0.25
 BRICKPILOT_HOLD_SECONDS = 2.050
 BRICKPILOT_HOLD_DECAY = 0.550
 LEAD_PRESENT_DISTANCE_UNKNOWN = 0.01
@@ -213,17 +246,18 @@ def _phev_regen_or_brake_active(car_state_sp: Any | None) -> bool:
               brake_b14 >= PHEV_BRAKE_065_B14_FRICTION_MIN_U8)
 
 
-def _phev_stationary_or_auto_hold_active(car_state_sp: Any | None, v_ego: float = 0.0) -> bool:
+def _phev_stationary_or_auto_hold_active(car_state_sp: Any | None, v_ego: float = 0.0,
+                                         standstill: bool = False) -> bool:
   if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION):
     return False
-  return bool(v_ego <= PHEV_STATIONARY_HOLD_MAX_SPEED and
+  return bool((standstill or v_ego <= PHEV_STATIONARY_HOLD_MAX_SPEED) and
               _safe_int(getattr(car_state_sp, "brickpilotPhevBaB14U8", 0)) == PHEV_BA_B14_AUTO_HOLD_VALUE)
 
 
-def _phev_brake_state(car_state_sp: Any | None, v_ego: float) -> int:
+def _phev_brake_state(car_state_sp: Any | None, v_ego: float, standstill: bool = False) -> int:
   if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_REGEN_LOGGER_MIN_VERSION):
     return PHEV_BRAKE_STATE_NONE
-  if _phev_stationary_or_auto_hold_active(car_state_sp, v_ego):
+  if _phev_stationary_or_auto_hold_active(car_state_sp, v_ego, standstill):
     return PHEV_BRAKE_STATE_STATIONARY_HOLD
 
   fa_b4_values = (
@@ -324,21 +358,64 @@ def _safe_ttc(lead_distance: float, lead_v_rel: float) -> float:
   return min(99.0, lead_distance / max(0.05, -lead_v_rel))
 
 
-def _stop_debug_fields(stop_source: int, brake_state: int, required_decel: float, a_target: float, a_ego: float,
-                       ttc: float, distance_buffer: float) -> dict[str, float | int]:
-  required_abs = abs(min(0.0, required_decel))
+def _stop_debug_fields(stop_source: int, brake_state: int, required_decel: float, required_decel_valid: bool,
+                       a_target: float, a_ego: float, ttc: float, ttc_valid: bool,
+                       distance_buffer: float) -> dict[str, float | int | bool]:
+  required_abs = abs(min(0.0, required_decel)) if required_decel_valid else 0.0
   target_abs = abs(min(0.0, a_target))
   actual_abs = abs(min(0.0, a_ego))
   return {
     "source": int(stop_source),
     "brake_state": int(brake_state),
     "required_decel": float(required_decel),
+    "required_decel_valid": bool(required_decel_valid),
     "planner_debt": float(max(0.0, required_abs - target_abs)),
     "controller_debt": float(max(0.0, target_abs - actual_abs)),
     "brake_debt": float(max(0.0, required_abs - actual_abs)),
     "ttc": float(ttc),
+    "ttc_valid": bool(ttc_valid),
     "distance_buffer": float(distance_buffer),
+    "requested_decel": float(min(0.0, a_target)),
+    "actual_decel": float(min(0.0, a_ego)),
   }
+
+
+def _lead_stop_geometry(lead_distance: float, lead_v_rel: float, a_target: float, should_stop: bool,
+                        model_hard_brake: bool, ttc: float) -> tuple[bool, bool, int]:
+  if lead_distance <= 0.0:
+    return False, False, STOP_INVALID_NO_LEAD_GEOMETRY
+
+  closing = lead_v_rel <= STOP_ASSIST_MIN_VALID_CLOSING_VREL
+  ttc_valid = bool(ttc > 0.0 and ttc <= STOP_ASSIST_MAX_VALID_TTC)
+  planner_already_braking = a_target < -0.05
+  valid = bool(should_stop or model_hard_brake or planner_already_braking or closing or ttc_valid)
+  if not valid:
+    return False, False, STOP_INVALID_FAR_NONCLOSING_LEAD
+  return True, ttc_valid, STOP_INVALID_NONE
+
+
+def _stop_debt_bucket(stop_source: int, required_valid: bool, invalid_reason: int, brake_state: int,
+                      planner_debt: float, controller_debt: float, stop_debt: float,
+                      driver_override: bool, stationary_hold: bool) -> int:
+  if driver_override:
+    return STOP_DEBT_BUCKET_DRIVER_OVERRIDE
+  if stationary_hold:
+    return STOP_DEBT_BUCKET_STATIONARY_HOLD
+  if stop_source == STOP_SOURCE_NONE:
+    return STOP_DEBT_BUCKET_NONE
+  if not required_valid:
+    return STOP_DEBT_BUCKET_INVALID_GEOMETRY if invalid_reason != STOP_INVALID_NONE else STOP_DEBT_BUCKET_NONE
+  if stop_source == STOP_SOURCE_CREEP:
+    return STOP_DEBT_BUCKET_CREEP_HOLD
+  if controller_debt >= 0.35:
+    return STOP_DEBT_BUCKET_CONTROLLER_UNDERBRAKE
+  if planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT:
+    return STOP_DEBT_BUCKET_PLANNER_LATE
+  if brake_state == PHEV_BRAKE_STATE_REGEN_LIGHT_COAST and stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT:
+    return STOP_DEBT_BUCKET_REGEN_LIGHT_CONTEXT
+  if stop_source == STOP_SOURCE_LEAD:
+    return STOP_DEBT_BUCKET_LEAD_CLOSE_CLOSING
+  return STOP_DEBT_BUCKET_NONE
 
 
 def _max_prob(values: Any) -> float:
@@ -441,9 +518,12 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     suppressors |= BrickpilotLongitudinalSuppressor.DEC_OR_SCC_ACTIVE
   if high_predicted_lateral:
     suppressors |= BrickpilotLongitudinalSuppressor.HIGH_PREDICTED_LATERAL_DEMAND
-  phev_brake_state = _phev_brake_state(car_state_sp, v_ego) if enabled_for_vehicle else PHEV_BRAKE_STATE_NONE
+  cs_standstill = bool(getattr(CS, "standstill", False))
+  cruise_standstill = bool(getattr(getattr(CS, "cruiseState", None), "standstill", False))
+  phev_brake_state = _phev_brake_state(car_state_sp, v_ego, cs_standstill or cruise_standstill) if enabled_for_vehicle else PHEV_BRAKE_STATE_NONE
   phev_regen_or_brake = enabled_for_vehicle and _phev_regen_or_brake_active(car_state_sp)
-  phev_stationary_or_auto_hold = enabled_for_vehicle and _phev_stationary_or_auto_hold_active(car_state_sp, v_ego)
+  phev_stationary_or_auto_hold = enabled_for_vehicle and _phev_stationary_or_auto_hold_active(
+    car_state_sp, v_ego, cs_standstill or cruise_standstill)
   if phev_regen_or_brake:
     suppressors |= BrickpilotLongitudinalSuppressor.PHEV_REGEN_OR_BRAKE
   if phev_stationary_or_auto_hold:
@@ -459,9 +539,7 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   if not source_is_cruise and not experimental_source_bridge:
     suppressors |= BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE
 
-  stopped_or_creeping = (bool(getattr(CS, "standstill", False)) or
-                         bool(getattr(getattr(CS, "cruiseState", None), "standstill", False)) or
-                         v_ego < MIN_ASSIST_SPEED)
+  stopped_or_creeping = (cs_standstill or cruise_standstill or v_ego < MIN_ASSIST_SPEED)
   if stopped_or_creeping:
     suppressors |= BrickpilotLongitudinalSuppressor.STOP_CREEP_BAND
   if bool(getattr(CS, "gasPressed", False)) or bool(getattr(CS, "brakePressed", False)):
@@ -486,21 +564,38 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     source_for_stop = STOP_SOURCE_CREEP
   stop_distance_buffer = _stop_distance_buffer(v_ego)
   required_lead_decel = _required_lead_stop_decel(v_ego, lead_distance, stop_distance_buffer)
-  required_decel = required_lead_decel
+  ttc = _safe_ttc(lead_distance, lead_v_rel)
+  stop_source_valid = source_for_stop != STOP_SOURCE_NONE
+  stop_speed_valid = bool(v_ego >= STOP_ASSIST_MIN_SPEED and v_ego <= STOP_ASSIST_MAX_SPEED)
+  stop_geometry_invalid_reason = STOP_INVALID_NONE if stop_source_valid else STOP_INVALID_NO_SOURCE
+  lead_required_valid = False
+  ttc_valid = False
+  if source_for_stop in (STOP_SOURCE_LEAD, STOP_SOURCE_CREEP):
+    lead_required_valid, ttc_valid, stop_geometry_invalid_reason = _lead_stop_geometry(
+      lead_distance, lead_v_rel, a_target, bool(getattr(long_plan, "shouldStop", False)), model_hard_brake, ttc)
+
+  required_decel_valid = bool(stop_source_valid and stop_speed_valid)
+  required_decel = 0.0
+  if source_for_stop == STOP_SOURCE_LEAD:
+    required_decel_valid = bool(required_decel_valid and lead_required_valid)
+    required_decel = required_lead_decel if required_decel_valid else 0.0
   if source_for_stop in (STOP_SOURCE_MODEL, STOP_SOURCE_SHOULD_STOP, STOP_SOURCE_CREEP):
+    if source_for_stop == STOP_SOURCE_CREEP:
+      required_decel_valid = bool(required_decel_valid and (lead_required_valid or bool(getattr(long_plan, "shouldStop", False))))
     required_decel = min(required_decel if required_decel < 0.0 else 0.0,
                          a_target if a_target < 0.0 else 0.0,
                          -STOP_ASSIST_MIN_REQUIRED_DECEL)
   if source_for_stop == STOP_SOURCE_CREEP:
     required_decel = min(required_decel, -STOP_ASSIST_CRAWL_TARGET_DECEL)
-  ttc = _safe_ttc(lead_distance, lead_v_rel)
-  stop_debug = _stop_debug_fields(source_for_stop, phev_brake_state, required_decel, a_target, a_ego,
-                                  ttc, stop_distance_buffer)
+  if not stop_speed_valid and stop_source_valid:
+    stop_geometry_invalid_reason = STOP_INVALID_SPEED_RANGE
+  if required_decel_valid:
+    stop_geometry_invalid_reason = STOP_INVALID_NONE
+  stop_debug = _stop_debug_fields(source_for_stop, phev_brake_state, required_decel, required_decel_valid,
+                                  a_target, a_ego, ttc, ttc_valid, stop_distance_buffer)
   stop_shadow_candidate = bool(enabled_for_vehicle and getattr(CC, "longActive", False) and valid and
                                source_for_stop != STOP_SOURCE_NONE and
-                               v_ego >= STOP_ASSIST_MIN_SPEED and v_ego <= STOP_ASSIST_MAX_SPEED and
-                               (required_decel <= -STOP_ASSIST_MIN_REQUIRED_DECEL or
-                                bool(getattr(long_plan, "shouldStop", False)) or model_hard_brake))
+                               v_ego >= STOP_ASSIST_MIN_SPEED and v_ego <= STOP_ASSIST_MAX_SPEED)
   stop_hard_blocked = bool(lateral_demand > STOP_ASSIST_MAX_LATERAL_ACCEL or
                            (suppressors & (BrickpilotLongitudinalSuppressor.NOT_TUCSON_CANFD |
                                            BrickpilotLongitudinalSuppressor.INVALID |
@@ -517,7 +612,12 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   controller_debt = float(stop_debug["controller_debt"])
   regen_light_not_enough = bool(phev_brake_state == PHEV_BRAKE_STATE_REGEN_LIGHT_COAST and stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT)
   crawl_stop = bool(source_for_stop == STOP_SOURCE_CREEP and v_ego <= STOP_ASSIST_CRAWL_MAX_SPEED and not CS.standstill)
+  driver_override = bool(getattr(CS, "gasPressed", False)) or bool(getattr(CS, "brakePressed", False))
+  stop_debt_bucket = _stop_debt_bucket(source_for_stop, required_decel_valid, stop_geometry_invalid_reason,
+                                       phev_brake_state, planner_debt, controller_debt, stop_debt,
+                                       driver_override, phev_stationary_or_auto_hold)
   stop_should_activate = bool(stop_shadow_candidate and not stop_hard_blocked and not phev_stationary_or_auto_hold and
+                              required_decel_valid and
                               (stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT or
                                planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT or
                                controller_debt >= 0.35 or
@@ -582,7 +682,17 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              stop_brake_debt=stop_debt,
                                              stop_ttc=ttc,
                                              stop_assist_delta=stop_assist_delta,
-                                             stop_distance_buffer=stop_distance_buffer)
+                                             stop_distance_buffer=stop_distance_buffer,
+                                             stop_source_valid=stop_source_valid,
+                                             stop_required_decel_valid=required_decel_valid,
+                                             stop_ttc_valid=ttc_valid,
+                                             stop_lead_distance=lead_distance,
+                                             stop_lead_v_rel=lead_v_rel,
+                                             stop_requested_decel=float(stop_debug["requested_decel"]),
+                                             stop_actual_decel=float(stop_debug["actual_decel"]),
+                                             stop_debt_bucket=stop_debt_bucket,
+                                             stop_geometry_invalid_reason=stop_geometry_invalid_reason,
+                                             stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE)
 
   if hard_suppressors != BrickpilotLongitudinalSuppressor.NONE or (soft_suppressors != BrickpilotLongitudinalSuppressor.NONE and not held_activation):
     next_hold_timer = max(0.0, prev_hold_timer - hold_dt) if hard_suppressors == BrickpilotLongitudinalSuppressor.NONE else 0.0
@@ -602,7 +712,17 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              stop_controller_debt=controller_debt,
                                              stop_brake_debt=stop_debt,
                                              stop_ttc=ttc,
-                                             stop_distance_buffer=stop_distance_buffer)
+                                             stop_distance_buffer=stop_distance_buffer,
+                                             stop_source_valid=stop_source_valid,
+                                             stop_required_decel_valid=required_decel_valid,
+                                             stop_ttc_valid=ttc_valid,
+                                             stop_lead_distance=lead_distance,
+                                             stop_lead_v_rel=lead_v_rel,
+                                             stop_requested_decel=float(stop_debug["requested_decel"]),
+                                             stop_actual_decel=float(stop_debug["actual_decel"]),
+                                             stop_debt_bucket=stop_debt_bucket,
+                                             stop_geometry_invalid_reason=stop_geometry_invalid_reason,
+                                             stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE)
 
   high_confidence_ramp = bool(source_is_cruise and
                               v_ego >= HIGH_CONF_RAMP_MIN_SPEED and
@@ -667,4 +787,14 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                            stop_controller_debt=controller_debt,
                                            stop_brake_debt=stop_debt,
                                            stop_ttc=ttc,
-                                           stop_distance_buffer=stop_distance_buffer)
+                                           stop_distance_buffer=stop_distance_buffer,
+                                           stop_source_valid=stop_source_valid,
+                                           stop_required_decel_valid=required_decel_valid,
+                                           stop_ttc_valid=ttc_valid,
+                                           stop_lead_distance=lead_distance,
+                                           stop_lead_v_rel=lead_v_rel,
+                                           stop_requested_decel=float(stop_debug["requested_decel"]),
+                                           stop_actual_decel=float(stop_debug["actual_decel"]),
+                                           stop_debt_bucket=stop_debt_bucket,
+                                           stop_geometry_invalid_reason=stop_geometry_invalid_reason,
+                                           stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE)

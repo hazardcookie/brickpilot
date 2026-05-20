@@ -931,6 +931,16 @@ struct ControlsState @0x97ff69c53601abf1 {
     stopTtc @60 :Float32;           # lead time-to-collision seconds, 0 when unavailable
     stopAssistDelta @61 :Float32;   # signed change from planner aTarget; negative when Brickpilot helps braking
     stopDistanceBuffer @62 :Float32;
+    stopSourceValid @63 :Bool;
+    stopRequiredDecelValid @64 :Bool;
+    stopTtcValid @65 :Bool;
+    stopLeadDistance @66 :Float32;
+    stopLeadVRel @67 :Float32;
+    stopRequestedDecel @68 :Float32; # negative planner aTarget component used for stop attribution
+    stopActualDecel @69 :Float32;    # negative measured aEgo component used for stop attribution
+    stopDebtBucket @70 :UInt8;       # 0 none, 1 invalid geometry, 2 valid lead, 3 planner, 4 controller, 5 creep, 6 light regen, 7 driver, 8 hold
+    stopGeometryInvalidReason @71 :UInt8; # 0 none, 1 no source, 2 missing lead geometry, 3 far/nonclosing lead, 4 speed range
+    stopProfile @72 :UInt8;          # 0 stockish shadow, 1 Tucson PHEV stable, 2 traffic shadow
   }
 
   deprecated :group {

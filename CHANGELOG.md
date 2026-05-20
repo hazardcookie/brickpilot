@@ -5,6 +5,39 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.1 - 2026-05-20
+
+Staging build toward 0.6.0 focused on making stop/brake attribution trustworthy
+before pushing harder on braking behavior. It keeps the 0.5.0 steering baseline
+and changes only the Tucson PHEV stop/follow layer.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal shadow version code
+  to `50100`.
+- Added StopDebug validity fields to `brickpilotShadow`: source validity,
+  required-decel validity, TTC validity, stop-specific lead distance/vRel,
+  requested decel, actual decel, debt bucket, invalid-geometry reason, and
+  stop-profile id.
+- Prevented invalid lead geometry from creating planner/controller/brake debt.
+  Far or non-closing lead contexts can still be logged as candidates, but they
+  no longer trigger live braking assist or max-debt false positives.
+- Kept light PHEV regen as context only. It can appear in the brake-state class,
+  but it does not satisfy required deceleration and does not block required
+  stop assist.
+- Tightened `0x0BA.b14` stationary/Auto Hold interpretation by requiring
+  near-zero speed or standstill before treating it as stationary hold.
+- Promoted a bounded Tucson PHEV low-speed follow/stop profile: valid lead,
+  model, and should-stop contexts get a larger stopped-distance buffer and a
+  slightly stronger capped negative `aTarget` adjustment through normal
+  LongControl.
+
+### Validation
+
+- Added regression coverage for the 0.5.1 version marker, invalid far/nonclosing
+  lead geometry, controller-underbrake bucketing, valid stop-debt activation,
+  light-regen-not-enough behavior, and stationary/Auto Hold speed gating.
+
 ## 0.5.0 - 2026-05-20
 
 Release build focused on Tucson PHEV braking adequacy, lead-stop confidence,

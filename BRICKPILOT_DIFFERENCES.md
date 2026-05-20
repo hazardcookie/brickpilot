@@ -165,6 +165,15 @@ stationary/auto-hold unless vehicle speed is near zero, and the logged brake
 state now separates light coast regen, regen/brake blend, friction-brake
 candidate, and stationary hold.
 
+In 0.5.1, Brickpilot keeps the 0.5.0 steering baseline and makes the stop stack
+more attribution-safe before moving toward 0.6.0. Invalid lead geometry, such as
+far or non-closing lead contexts with huge TTC, no longer creates brake debt or
+live stop assist. Stop debug logs now include source validity, required-decel
+validity, TTC validity, debt bucket, invalid-geometry reason, and stop-profile
+id. When the stop source is valid, Brickpilot uses a slightly larger low-speed
+Tucson PHEV stopped-distance buffer and a stronger bounded negative `aTarget`
+adjustment through the normal LongControl path.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
