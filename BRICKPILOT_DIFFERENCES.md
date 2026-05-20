@@ -174,6 +174,14 @@ id. When the stop source is valid, Brickpilot uses a slightly larger low-speed
 Tucson PHEV stopped-distance buffer and a stronger bounded negative `aTarget`
 adjustment through the normal LongControl path.
 
+In 0.5.2, Brickpilot keeps steering and broad catch-up frozen and promotes the
+next stop-stack step. Valid controller-underbrake cases now get a stronger
+bounded recovery target, crawl/final-stop lead `shouldStop` contexts commit to a
+firmer decel target below 5 mph, and mild high-TTC lead contexts use a less
+blunt stopped-distance buffer to reduce unnatural early stops. This remains a
+lead/model/shouldStop braking assist only; it is not a no-lead stop-sign or
+traffic-light feature.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the

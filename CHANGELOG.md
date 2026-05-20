@@ -5,6 +5,36 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.2 - 2026-05-20
+
+Staging build focused on turning the 0.5.1 stop-stack diagnostics into a
+bounded live response for the next road test. Steering, MADS manual-steering
+isolation, and broad catch-up behavior are intentionally unchanged.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal candidate code to
+  `50200`.
+- Added Stop Stack v2 controller-debt recovery. In valid lead/model/shouldStop
+  contexts, when the planner is already asking for braking but measured Tucson
+  PHEV decel is under-delivering, Brickpilot can apply a stronger capped
+  negative `aTarget` adjustment through the normal LongControl path.
+- Strengthened final-stop commitment below 5 mph. Lead `shouldStop` crawl
+  contexts now hold a firmer target decel so weak coast regen is less likely to
+  let the car creep instead of finishing the stop.
+- Made the low-speed stopped-distance buffer less blunt for mild high-TTC lead
+  contexts that are not already `shouldStop` or model-hard-brake situations.
+  This keeps the 0.5.1 earlier-stop safety margin for urgent stops while
+  reducing unnatural early braking in easy following.
+- Kept the invariant that PHEV regen/brake context may block positive catch-up
+  assist, but must not block required stop/deceleration assist.
+
+### Validation
+
+- Added regression coverage for the 0.5.2 version marker, stronger
+  controller-underbrake recovery, final-stop target, and relaxed high-TTC lead
+  buffer.
+
 ## 0.5.1 - 2026-05-20
 
 Staging build toward 0.6.0 focused on making stop/brake attribution trustworthy

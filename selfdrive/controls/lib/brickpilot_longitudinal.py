@@ -108,14 +108,14 @@ class BrickpilotLongitudinalAssistState:
   stop_profile: int = STOP_PROFILE_TUCSON_PHEV_STABLE
 
 
-# Brickpilot 0.5.1 keeps the stable 0.5.0 steering baseline and makes the stop
-# stack more attribution-safe: invalid lead geometry no longer creates brake
-# debt, while valid Tucson PHEV low-speed lead/shouldStop contexts get a
-# bounded earlier stop target through the normal LongControl/safety path.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.1"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50100
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_051_valid_stop_stack_follow_policy"
-ULTIMATE_100K_CANDIDATE_HASH = 2185689795
+# Brickpilot 0.5.2 keeps the stable 0.5.0/0.5.1 steering baseline and moves the
+# stop stack from attribution toward a bounded live response: valid controller
+# underbrake gets more authority, crawl/final-stop contexts commit harder below
+# 5 mph, and mild early lead contexts get a less blunt stopped-distance buffer.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.2"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50200
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_052_stop_stack_v2_controller_finish"
+ULTIMATE_100K_CANDIDATE_HASH = 1697578045
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
@@ -167,13 +167,20 @@ STOP_ASSIST_MAX_LATERAL_ACCEL = 0.75
 STOP_ASSIST_MIN_REQUIRED_DECEL = 0.35
 STOP_ASSIST_MIN_BRAKE_DEBT = 0.15
 STOP_ASSIST_MAX_EXTRA_DECEL = 0.68
-STOP_ASSIST_CRAWL_MAX_EXTRA_DECEL = 0.82
+STOP_ASSIST_CONTROLLER_DEBT_MIN = 0.35
+STOP_ASSIST_CONTROLLER_RECOVERY_MIN_EXTRA_DECEL = 0.26
+STOP_ASSIST_CONTROLLER_RECOVERY_GAIN = 0.55
+STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL = 0.98
+STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL = 1.05
 STOP_ASSIST_MAX_TARGET_DECEL = 1.85
-STOP_ASSIST_CRAWL_MAX_SPEED = 4.0 * CV.MPH_TO_MS
-STOP_ASSIST_CRAWL_TARGET_DECEL = 0.55
+STOP_ASSIST_CRAWL_MAX_SPEED = 5.0 * CV.MPH_TO_MS
+STOP_ASSIST_CRAWL_TARGET_DECEL = 0.72
 STOP_ASSIST_LOW_SPEED_BUFFER = 6.25
 STOP_ASSIST_MID_SPEED_BUFFER = 4.75
 STOP_ASSIST_HIGH_SPEED_BUFFER = 3.25
+STOP_ASSIST_BUFFER_RELAX_TTC = 5.5
+STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL = -1.0
+STOP_ASSIST_BUFFER_RELAX_AMOUNT = 0.85
 STOP_ASSIST_MIN_STOP_DISTANCE = 1.0
 STOP_ASSIST_MAX_VALID_TTC = 10.0
 STOP_ASSIST_MIN_VALID_CLOSING_VREL = -0.25
@@ -325,12 +332,24 @@ def _lead_present_or_limiting(long_plan: Any, radar_state: Any) -> tuple[bool, f
   return present_or_limiting, d_rel if radar_lead else 0.0, bool(radar_lead and v_rel < -0.1), radar_lead
 
 
-def _stop_distance_buffer(v_ego: float) -> float:
+def _stop_distance_buffer(v_ego: float, lead_v_rel: float = 0.0, ttc: float = 0.0,
+                          should_stop: bool = False, model_hard_brake: bool = False) -> float:
   if v_ego < 15.0 * CV.MPH_TO_MS:
-    return STOP_ASSIST_LOW_SPEED_BUFFER
-  if v_ego < 35.0 * CV.MPH_TO_MS:
-    return STOP_ASSIST_MID_SPEED_BUFFER
-  return STOP_ASSIST_HIGH_SPEED_BUFFER
+    base_buffer = STOP_ASSIST_LOW_SPEED_BUFFER
+  elif v_ego < 35.0 * CV.MPH_TO_MS:
+    base_buffer = STOP_ASSIST_MID_SPEED_BUFFER
+  else:
+    base_buffer = STOP_ASSIST_HIGH_SPEED_BUFFER
+
+  # 0.5.1 proved that the larger low-speed buffer helps missed/late stops, but
+  # the first 0.5.1 route also produced some "too early but eventually good"
+  # stops. Relax the buffer only for mild, high-TTC lead contexts that are not
+  # already shouldStop/model-brake situations.
+  if (not should_stop and not model_hard_brake and
+      ttc > STOP_ASSIST_BUFFER_RELAX_TTC and
+      lead_v_rel >= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL):
+    return max(STOP_ASSIST_HIGH_SPEED_BUFFER, base_buffer - STOP_ASSIST_BUFFER_RELAX_AMOUNT)
+  return base_buffer
 
 
 def _required_lead_stop_decel(v_ego: float, lead_distance: float, distance_buffer: float) -> float:
@@ -407,7 +426,7 @@ def _stop_debt_bucket(stop_source: int, required_valid: bool, invalid_reason: in
     return STOP_DEBT_BUCKET_INVALID_GEOMETRY if invalid_reason != STOP_INVALID_NONE else STOP_DEBT_BUCKET_NONE
   if stop_source == STOP_SOURCE_CREEP:
     return STOP_DEBT_BUCKET_CREEP_HOLD
-  if controller_debt >= 0.35:
+  if controller_debt >= STOP_ASSIST_CONTROLLER_DEBT_MIN:
     return STOP_DEBT_BUCKET_CONTROLLER_UNDERBRAKE
   if planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT:
     return STOP_DEBT_BUCKET_PLANNER_LATE
@@ -562,9 +581,11 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   source_for_stop = _stop_source(long_plan, radar_state, model_hard_brake)
   if source_for_stop == STOP_SOURCE_LEAD and bool(getattr(long_plan, "shouldStop", False)) and v_ego <= STOP_ASSIST_CRAWL_MAX_SPEED:
     source_for_stop = STOP_SOURCE_CREEP
-  stop_distance_buffer = _stop_distance_buffer(v_ego)
-  required_lead_decel = _required_lead_stop_decel(v_ego, lead_distance, stop_distance_buffer)
   ttc = _safe_ttc(lead_distance, lead_v_rel)
+  stop_distance_buffer = _stop_distance_buffer(v_ego, lead_v_rel, ttc,
+                                               bool(getattr(long_plan, "shouldStop", False)),
+                                               model_hard_brake)
+  required_lead_decel = _required_lead_stop_decel(v_ego, lead_distance, stop_distance_buffer)
   stop_source_valid = source_for_stop != STOP_SOURCE_NONE
   stop_speed_valid = bool(v_ego >= STOP_ASSIST_MIN_SPEED and v_ego <= STOP_ASSIST_MAX_SPEED)
   stop_geometry_invalid_reason = STOP_INVALID_NONE if stop_source_valid else STOP_INVALID_NO_SOURCE
@@ -616,17 +637,38 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   stop_debt_bucket = _stop_debt_bucket(source_for_stop, required_decel_valid, stop_geometry_invalid_reason,
                                        phev_brake_state, planner_debt, controller_debt, stop_debt,
                                        driver_override, phev_stationary_or_auto_hold)
+  controller_underbrake_recovery = bool(controller_debt >= STOP_ASSIST_CONTROLLER_DEBT_MIN and
+                                        stop_debt_bucket == STOP_DEBT_BUCKET_CONTROLLER_UNDERBRAKE)
+  lead_stop_live_urgent = bool(source_for_stop != STOP_SOURCE_LEAD or
+                               ttc_valid or
+                               lead_v_rel <= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL or
+                               bool(getattr(long_plan, "shouldStop", False)) or
+                               model_hard_brake)
   stop_should_activate = bool(stop_shadow_candidate and not stop_hard_blocked and not phev_stationary_or_auto_hold and
                               required_decel_valid and
-                              (stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT or
-                               planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT or
-                               controller_debt >= 0.35 or
-                               regen_light_not_enough or crawl_stop))
+                              ((stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent) or
+                               (planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent) or
+                               controller_underbrake_recovery or
+                               (regen_light_not_enough and lead_stop_live_urgent) or
+                               crawl_stop))
   stop_assist_target = a_target
   stop_assist_delta = 0.0
   if stop_should_activate:
-    max_extra_decel = STOP_ASSIST_CRAWL_MAX_EXTRA_DECEL if crawl_stop else STOP_ASSIST_MAX_EXTRA_DECEL
+    if crawl_stop:
+      max_extra_decel = STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL
+    elif controller_underbrake_recovery:
+      max_extra_decel = STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL
+    else:
+      max_extra_decel = STOP_ASSIST_MAX_EXTRA_DECEL
     desired_stop_target = min(a_target, required_decel)
+    if controller_underbrake_recovery:
+      recovery_extra_decel = min(STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL,
+                                 STOP_ASSIST_CONTROLLER_RECOVERY_MIN_EXTRA_DECEL +
+                                 STOP_ASSIST_CONTROLLER_RECOVERY_GAIN *
+                                 max(0.0, controller_debt - STOP_ASSIST_CONTROLLER_DEBT_MIN))
+      desired_stop_target = min(desired_stop_target, a_target - recovery_extra_decel)
+    if crawl_stop:
+      desired_stop_target = min(desired_stop_target, -STOP_ASSIST_CRAWL_TARGET_DECEL)
     desired_stop_target = max(desired_stop_target, -STOP_ASSIST_MAX_TARGET_DECEL)
     stop_assist_target = max(desired_stop_target, a_target - max_extra_decel)
     stop_assist_target = max(stop_assist_target, _safe_float(accel_limits[0], -STOP_ASSIST_MAX_TARGET_DECEL))
