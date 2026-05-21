@@ -5,6 +5,25 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.3.1 - 2026-05-21
+
+Staging build marker for the voice-label telemetry calibration workflow. Live
+driving behavior is unchanged from 0.5.3.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal candidate code to
+  `50310`.
+- Paired the installable build with the new tools-side voice-alignment
+  calibrator, which snaps explicit manual/driver brake and gas voice anchors to
+  logged telemetry edges and estimates per-route voice timing offsets without
+  mutating raw bookmarks or reviewed labels.
+
+### Validation
+
+- Re-ran the focused Brickpilot longitudinal regression tests after the version
+  marker change.
+
 ## 0.5.3 - 2026-05-20
 
 Staging build focused on attribution-first stop-stack iteration. Steering and

@@ -189,6 +189,12 @@ requires a persistent valid source, planner decel, and plausible close/closing
 context before it can fire. The build also logs `0x065.b11` and `0x065.b12` as
 read-only CAN candidates for stop-creep/hold event-card analysis.
 
+In 0.5.3.1, Brickpilot's installed driving behavior remains unchanged from
+0.5.3. The version marks the first voice-label telemetry calibration workflow:
+explicit manual/driver brake and gas narration can be snapped to logged
+telemetry edges in the tools pipeline, and enough high-confidence anchors can
+produce a route-level voice timing offset for subjective labels.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the

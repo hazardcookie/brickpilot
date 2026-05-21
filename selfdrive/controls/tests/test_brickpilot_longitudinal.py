@@ -191,11 +191,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_053_marks_event_cards_final_stop_build(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.3")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50300)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_053_event_cards_final_stop")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 2503599941)
+  def test_0531_marks_voice_alignment_calibration_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.3.1")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50310)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_0531_voice_alignment_calibration")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 777053131)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)

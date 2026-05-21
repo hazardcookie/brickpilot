@@ -117,14 +117,16 @@ class BrickpilotLongitudinalAssistState:
   stop_source_persist_sec: float = 0.0
 
 
-# Brickpilot 0.5.3 keeps the stable 0.4.9 steering baseline and makes the stop
+# Brickpilot 0.5.3.1 keeps the stable 0.4.9 steering baseline and makes the stop
 # stack more attributable: active stop assist logs its reason/source persistence,
 # while live final-stop commitment is narrowed to persistent, valid low-speed
-# stop contexts where the planner is already asking for decel.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.3"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50300
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_053_event_cards_final_stop"
-ULTIMATE_100K_CANDIDATE_HASH = 2503599941
+# stop contexts where the planner is already asking for decel. 0.5.3.1 does not
+# change live driving behavior; it marks the build that pairs with voice-label
+# telemetry-edge calibration tooling.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.3.1"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50310
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_0531_voice_alignment_calibration"
+ULTIMATE_100K_CANDIDATE_HASH = 777053131
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
