@@ -216,6 +216,8 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
     ret_sp.brickpilotBrake065B3U8 = self._brickpilot_phev_u8(brake_dat, 3)
     ret_sp.brickpilotBrake065B9U8 = self._brickpilot_phev_u8(brake_dat, 9)
     ret_sp.brickpilotBrake065B10U8 = self._brickpilot_phev_u8(brake_dat, 10)
+    ret_sp.brickpilotBrake065B11U8 = self._brickpilot_phev_u8(brake_dat, 11)
+    ret_sp.brickpilotBrake065B12U8 = self._brickpilot_phev_u8(brake_dat, 12)
     ret_sp.brickpilotBrake065B14U8 = self._brickpilot_phev_u8(brake_dat, 14)
     ret_sp.brickpilotAdas310B17U8 = self._brickpilot_phev_u8(adas_dat, 17)
     ret_sp.brickpilotAdas310B18U8 = self._brickpilot_phev_u8(adas_dat, 18)

@@ -364,6 +364,8 @@ class Controls(ControlsExt):
     bp.stopDebtBucket = int(self.brickpilot_longitudinal_assist.stop_debt_bucket)
     bp.stopGeometryInvalidReason = int(self.brickpilot_longitudinal_assist.stop_geometry_invalid_reason)
     bp.stopProfile = int(self.brickpilot_longitudinal_assist.stop_profile)
+    bp.stopAssistReason = int(self.brickpilot_longitudinal_assist.stop_assist_reason)
+    bp.stopSourcePersistSec = float(self.brickpilot_longitudinal_assist.stop_source_persist_sec)
     steering_guard = self._update_brickpilot_steering_guard_shadow(CC, CS)
     bp.steeringGuardTucsonCanfdScope = bool(steering_guard["scope"])
     bp.steeringGuardHighAngleLatched = bool(steering_guard["angle_latched"])

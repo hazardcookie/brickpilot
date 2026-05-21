@@ -941,6 +941,8 @@ struct ControlsState @0x97ff69c53601abf1 {
     stopDebtBucket @70 :UInt8;       # 0 none, 1 invalid geometry, 2 valid lead, 3 planner, 4 controller, 5 creep, 6 light regen, 7 driver, 8 hold
     stopGeometryInvalidReason @71 :UInt8; # 0 none, 1 no source, 2 missing lead geometry, 3 far/nonclosing lead, 4 speed range
     stopProfile @72 :UInt8;          # 0 stockish shadow, 1 Tucson PHEV stable, 2 traffic shadow
+    stopAssistReason @73 :UInt8;     # 0 none, 1 brake debt, 2 planner, 3 controller, 4 final stop, 5 light regen
+    stopSourcePersistSec @74 :Float32;
   }
 
   deprecated :group {

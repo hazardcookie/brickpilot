@@ -5,6 +5,33 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.3 - 2026-05-20
+
+Staging build focused on attribution-first stop-stack iteration. Steering and
+general catch-up behavior remain frozen; the live stop change is intentionally
+narrow and aimed at final-stop creep/hold confidence.
+
+### Changed
+
+- Bumped Brickpilot longitudinal candidate code to `50300`.
+- Added `stopAssistReason` and `stopSourcePersistSec` to `brickpilotShadow` so
+  every active stop assist sample explains why it fired and whether the stop
+  source persisted long enough to trust.
+- Narrowed live final-stop commitment below 5 mph. Final-stop assist now
+  requires valid stop geometry, planner decel, a persistent stop source, and
+  plausible close/closing stop context before using the firmer final-stop
+  target.
+- Kept controller-underbrake recovery bounded at the 0.5.2 authority cap rather
+  than broadening braking strength from one unlabeled route.
+- Added read-only `0x065.b11` and `0x065.b12` CAN candidates to the PHEV logger
+  for stop-creep/hold event-card analysis.
+
+### Validation
+
+- Added regression coverage for the 0.5.3 version marker, active stop-assist
+  reasons, persistent-source final-stop gating, and the new `0x065.b11/b12`
+  logger fields.
+
 ## 0.5.2 - 2026-05-20
 
 Staging build focused on turning the 0.5.1 stop-stack diagnostics into a

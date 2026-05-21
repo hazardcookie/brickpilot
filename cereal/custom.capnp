@@ -491,6 +491,8 @@ struct CarStateSP @0xb86e6369214c01c8 {
   brickpilotPhevFaB7S8Bus130 @44 :Int8;
   brickpilotBrake065B3U8 @45 :UInt8;
   brickpilotBrake065B14U8 @46 :UInt8;
+  brickpilotBrake065B11U8 @47 :UInt8;
+  brickpilotBrake065B12U8 @48 :UInt8;
 }
 
 struct LiveMapDataSP @0xf416ec09499d9d19 {

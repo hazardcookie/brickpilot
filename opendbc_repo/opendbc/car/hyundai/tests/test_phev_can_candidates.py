@@ -52,6 +52,8 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   brake[3] = 33
   brake[9] = 144
   brake[10] = 145
+  brake[11] = 146
+  brake[12] = 147
   brake[14] = 66
   adas = bytearray(24)
   adas[17] = 226
@@ -117,6 +119,8 @@ def test_phev_candidate_logger_decodes_signed_and_mirrored_fa_b4():
   assert ret_sp.brickpilotBrake065B3U8 == 33
   assert ret_sp.brickpilotBrake065B9U8 == 144
   assert ret_sp.brickpilotBrake065B10U8 == 145
+  assert ret_sp.brickpilotBrake065B11U8 == 146
+  assert ret_sp.brickpilotBrake065B12U8 == 147
   assert ret_sp.brickpilotBrake065B14U8 == 66
   assert ret_sp.brickpilotAdas310B17U8 == 226
   assert ret_sp.brickpilotAdas310B18U8 == 255

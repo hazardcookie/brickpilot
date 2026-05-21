@@ -182,6 +182,13 @@ blunt stopped-distance buffer to reduce unnatural early stops. This remains a
 lead/model/shouldStop braking assist only; it is not a no-lead stop-sign or
 traffic-light feature.
 
+In 0.5.3, Brickpilot keeps the same steering and general catch-up behavior while
+making stop-stack attribution first-class. Active stop assist now logs a reason
+code and stop-source persistence, and the firmer below-5-mph final-stop target
+requires a persistent valid source, planner decel, and plausible close/closing
+context before it can fire. The build also logs `0x065.b11` and `0x065.b12` as
+read-only CAN candidates for stop-creep/hold event-card analysis.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the

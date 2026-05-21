@@ -60,6 +60,13 @@ STOP_DEBT_BUCKET_REGEN_LIGHT_CONTEXT = 6
 STOP_DEBT_BUCKET_DRIVER_OVERRIDE = 7
 STOP_DEBT_BUCKET_STATIONARY_HOLD = 8
 
+STOP_ASSIST_REASON_NONE = 0
+STOP_ASSIST_REASON_BRAKE_DEBT = 1
+STOP_ASSIST_REASON_PLANNER_DEBT = 2
+STOP_ASSIST_REASON_CONTROLLER_UNDERBRAKE = 3
+STOP_ASSIST_REASON_FINAL_STOP_COMMIT = 4
+STOP_ASSIST_REASON_REGEN_LIGHT_NOT_ENOUGH = 5
+
 PHEV_BRAKE_STATE_NONE = 0
 PHEV_BRAKE_STATE_REGEN_LIGHT_COAST = 1
 PHEV_BRAKE_STATE_REGEN_BRAKE_BLEND = 2
@@ -106,16 +113,18 @@ class BrickpilotLongitudinalAssistState:
   stop_debt_bucket: int = STOP_DEBT_BUCKET_NONE
   stop_geometry_invalid_reason: int = STOP_INVALID_NONE
   stop_profile: int = STOP_PROFILE_TUCSON_PHEV_STABLE
+  stop_assist_reason: int = STOP_ASSIST_REASON_NONE
+  stop_source_persist_sec: float = 0.0
 
 
-# Brickpilot 0.5.2 keeps the stable 0.5.0/0.5.1 steering baseline and moves the
-# stop stack from attribution toward a bounded live response: valid controller
-# underbrake gets more authority, crawl/final-stop contexts commit harder below
-# 5 mph, and mild early lead contexts get a less blunt stopped-distance buffer.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.2"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50200
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_052_stop_stack_v2_controller_finish"
-ULTIMATE_100K_CANDIDATE_HASH = 1697578045
+# Brickpilot 0.5.3 keeps the stable 0.4.9 steering baseline and makes the stop
+# stack more attributable: active stop assist logs its reason/source persistence,
+# while live final-stop commitment is narrowed to persistent, valid low-speed
+# stop contexts where the planner is already asking for decel.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.3"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50300
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_053_event_cards_final_stop"
+ULTIMATE_100K_CANDIDATE_HASH = 2503599941
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
@@ -172,6 +181,9 @@ STOP_ASSIST_CONTROLLER_RECOVERY_MIN_EXTRA_DECEL = 0.26
 STOP_ASSIST_CONTROLLER_RECOVERY_GAIN = 0.55
 STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL = 0.98
 STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL = 1.05
+STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC = 0.50
+STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL = 0.95
+STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN = 1.25
 STOP_ASSIST_MAX_TARGET_DECEL = 1.85
 STOP_ASSIST_CRAWL_MAX_SPEED = 5.0 * CV.MPH_TO_MS
 STOP_ASSIST_CRAWL_TARGET_DECEL = 0.72
@@ -578,6 +590,7 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   if accel_lag < MIN_ACCEL_LAG:
     suppressors |= BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL
 
+  hold_dt = max(0.0, min(_safe_float(dt, 0.05), 0.20))
   source_for_stop = _stop_source(long_plan, radar_state, model_hard_brake)
   if source_for_stop == STOP_SOURCE_LEAD and bool(getattr(long_plan, "shouldStop", False)) and v_ego <= STOP_ASSIST_CRAWL_MAX_SPEED:
     source_for_stop = STOP_SOURCE_CREEP
@@ -612,6 +625,17 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     stop_geometry_invalid_reason = STOP_INVALID_SPEED_RANGE
   if required_decel_valid:
     stop_geometry_invalid_reason = STOP_INVALID_NONE
+  prev_stop_source = _safe_int(getattr(prev_state, "stop_source", STOP_SOURCE_NONE)) if prev_state is not None else STOP_SOURCE_NONE
+  prev_required_valid = bool(getattr(prev_state, "stop_required_decel_valid", False)) if prev_state is not None else False
+  prev_source_persist_sec = max(0.0, _safe_float(getattr(prev_state, "stop_source_persist_sec", 0.0))) if prev_state is not None else 0.0
+  same_valid_stop_source = bool(source_for_stop != STOP_SOURCE_NONE and required_decel_valid and
+                                prev_stop_source == source_for_stop and prev_required_valid)
+  if same_valid_stop_source:
+    stop_source_persist_sec = min(5.0, prev_source_persist_sec + hold_dt)
+  elif source_for_stop != STOP_SOURCE_NONE and required_decel_valid:
+    stop_source_persist_sec = hold_dt
+  else:
+    stop_source_persist_sec = 0.0
   stop_debug = _stop_debug_fields(source_for_stop, phev_brake_state, required_decel, required_decel_valid,
                                   a_target, a_ego, ttc, ttc_valid, stop_distance_buffer)
   stop_shadow_candidate = bool(enabled_for_vehicle and getattr(CC, "longActive", False) and valid and
@@ -632,7 +656,6 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   planner_debt = float(stop_debug["planner_debt"])
   controller_debt = float(stop_debug["controller_debt"])
   regen_light_not_enough = bool(phev_brake_state == PHEV_BRAKE_STATE_REGEN_LIGHT_COAST and stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT)
-  crawl_stop = bool(source_for_stop == STOP_SOURCE_CREEP and v_ego <= STOP_ASSIST_CRAWL_MAX_SPEED and not CS.standstill)
   driver_override = bool(getattr(CS, "gasPressed", False)) or bool(getattr(CS, "brakePressed", False))
   stop_debt_bucket = _stop_debt_bucket(source_for_stop, required_decel_valid, stop_geometry_invalid_reason,
                                        phev_brake_state, planner_debt, controller_debt, stop_debt,
@@ -644,17 +667,44 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                lead_v_rel <= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL or
                                bool(getattr(long_plan, "shouldStop", False)) or
                                model_hard_brake)
+  planner_already_braking = bool(a_target <= -0.05)
+  final_stop_source = source_for_stop in (STOP_SOURCE_LEAD, STOP_SOURCE_MODEL, STOP_SOURCE_SHOULD_STOP, STOP_SOURCE_CREEP)
+  final_stop_gap_valid = bool(ttc_valid or
+                              lead_v_rel <= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL or
+                              bool(getattr(long_plan, "shouldStop", False)) or
+                              model_hard_brake or
+                              (lead_distance > 0.0 and
+                               lead_distance <= stop_distance_buffer + STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN))
+  final_stop_commit = bool(v_ego <= STOP_ASSIST_CRAWL_MAX_SPEED and
+                           final_stop_source and
+                           required_decel_valid and
+                           planner_already_braking and
+                           stop_source_persist_sec >= STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC and
+                           final_stop_gap_valid and
+                           not cs_standstill)
   stop_should_activate = bool(stop_shadow_candidate and not stop_hard_blocked and not phev_stationary_or_auto_hold and
                               required_decel_valid and
                               ((stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent) or
                                (planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent) or
                                controller_underbrake_recovery or
                                (regen_light_not_enough and lead_stop_live_urgent) or
-                               crawl_stop))
+                               final_stop_commit))
+  stop_assist_reason = STOP_ASSIST_REASON_NONE
+  if stop_should_activate:
+    if final_stop_commit:
+      stop_assist_reason = STOP_ASSIST_REASON_FINAL_STOP_COMMIT
+    elif controller_underbrake_recovery:
+      stop_assist_reason = STOP_ASSIST_REASON_CONTROLLER_UNDERBRAKE
+    elif regen_light_not_enough and lead_stop_live_urgent:
+      stop_assist_reason = STOP_ASSIST_REASON_REGEN_LIGHT_NOT_ENOUGH
+    elif planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent:
+      stop_assist_reason = STOP_ASSIST_REASON_PLANNER_DEBT
+    elif stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent:
+      stop_assist_reason = STOP_ASSIST_REASON_BRAKE_DEBT
   stop_assist_target = a_target
   stop_assist_delta = 0.0
   if stop_should_activate:
-    if crawl_stop:
+    if final_stop_commit:
       max_extra_decel = STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL
     elif controller_underbrake_recovery:
       max_extra_decel = STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL
@@ -667,8 +717,8 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                  STOP_ASSIST_CONTROLLER_RECOVERY_GAIN *
                                  max(0.0, controller_debt - STOP_ASSIST_CONTROLLER_DEBT_MIN))
       desired_stop_target = min(desired_stop_target, a_target - recovery_extra_decel)
-    if crawl_stop:
-      desired_stop_target = min(desired_stop_target, -STOP_ASSIST_CRAWL_TARGET_DECEL)
+    if final_stop_commit:
+      desired_stop_target = min(desired_stop_target, -STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL)
     desired_stop_target = max(desired_stop_target, -STOP_ASSIST_MAX_TARGET_DECEL)
     stop_assist_target = max(desired_stop_target, a_target - max_extra_decel)
     stop_assist_target = max(stop_assist_target, _safe_float(accel_limits[0], -STOP_ASSIST_MAX_TARGET_DECEL))
@@ -699,7 +749,6 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                           BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL)
   prev_hold_timer = max(0.0, _safe_float(getattr(prev_state, "hold_timer", 0.0))) if prev_state is not None else 0.0
   prev_hold_target = _safe_float(getattr(prev_state, "hold_target", 0.0), a_target) if prev_state is not None else a_target
-  hold_dt = max(0.0, min(_safe_float(dt, 0.05), 0.20))
   hold_demand_context = bool(speed_deficit >= max(0.0, MIN_CATCHUP_SPEED_DEFICIT - HOLD_GAP_SPEED_DEFICIT_MARGIN) and
                              v_ego >= MIN_ASSIST_SPEED and (source_is_cruise or experimental_source_bridge))
   held_activation = bool(hard_suppressors == BrickpilotLongitudinalSuppressor.NONE and
@@ -734,7 +783,9 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              stop_actual_decel=float(stop_debug["actual_decel"]),
                                              stop_debt_bucket=stop_debt_bucket,
                                              stop_geometry_invalid_reason=stop_geometry_invalid_reason,
-                                             stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE)
+                                             stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE,
+                                             stop_assist_reason=stop_assist_reason,
+                                             stop_source_persist_sec=stop_source_persist_sec)
 
   if hard_suppressors != BrickpilotLongitudinalSuppressor.NONE or (soft_suppressors != BrickpilotLongitudinalSuppressor.NONE and not held_activation):
     next_hold_timer = max(0.0, prev_hold_timer - hold_dt) if hard_suppressors == BrickpilotLongitudinalSuppressor.NONE else 0.0
@@ -764,7 +815,9 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              stop_actual_decel=float(stop_debug["actual_decel"]),
                                              stop_debt_bucket=stop_debt_bucket,
                                              stop_geometry_invalid_reason=stop_geometry_invalid_reason,
-                                             stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE)
+                                             stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE,
+                                             stop_assist_reason=STOP_ASSIST_REASON_NONE,
+                                             stop_source_persist_sec=stop_source_persist_sec)
 
   high_confidence_ramp = bool(source_is_cruise and
                               v_ego >= HIGH_CONF_RAMP_MIN_SPEED and
@@ -839,4 +892,6 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                            stop_actual_decel=float(stop_debug["actual_decel"]),
                                            stop_debt_bucket=stop_debt_bucket,
                                            stop_geometry_invalid_reason=stop_geometry_invalid_reason,
-                                           stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE)
+                                           stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE,
+                                           stop_assist_reason=STOP_ASSIST_REASON_NONE,
+                                           stop_source_persist_sec=stop_source_persist_sec)
