@@ -117,16 +117,14 @@ class BrickpilotLongitudinalAssistState:
   stop_source_persist_sec: float = 0.0
 
 
-# Brickpilot 0.5.3.1 keeps the stable 0.4.9 steering baseline and makes the stop
-# stack more attributable: active stop assist logs its reason/source persistence,
-# while live final-stop commitment is narrowed to persistent, valid low-speed
-# stop contexts where the planner is already asking for decel. 0.5.3.1 does not
-# change live driving behavior; it marks the build that pairs with voice-label
-# telemetry-edge calibration tooling.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.3.1"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50310
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_0531_voice_alignment_calibration"
-ULTIMATE_100K_CANDIDATE_HASH = 777053131
+# Brickpilot 0.5.4 keeps the stable 0.4.9 steering baseline and targets the
+# 0.5.3.1 labeled stop-stack finding: final-stop events often switch among
+# lead/model/creep sources right when the car should commit to the last few mph.
+# Live braking remains bounded to valid, persistent stop contexts.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.4"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50400
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_054_stop_source_persistence"
+ULTIMATE_100K_CANDIDATE_HASH = 777054000
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
@@ -182,9 +180,10 @@ STOP_ASSIST_CONTROLLER_DEBT_MIN = 0.35
 STOP_ASSIST_CONTROLLER_RECOVERY_MIN_EXTRA_DECEL = 0.26
 STOP_ASSIST_CONTROLLER_RECOVERY_GAIN = 0.55
 STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL = 0.98
-STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL = 1.05
+STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL = 1.14
+STOP_ASSIST_FINAL_COMMIT_MAX_SPEED = 6.0 * CV.MPH_TO_MS
 STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC = 0.50
-STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL = 0.95
+STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL = 1.08
 STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN = 1.25
 STOP_ASSIST_MAX_TARGET_DECEL = 1.85
 STOP_ASSIST_CRAWL_MAX_SPEED = 5.0 * CV.MPH_TO_MS
@@ -383,6 +382,15 @@ def _stop_source(long_plan: Any, radar_state: Any, model_hard_brake: bool) -> in
   if bool(getattr(long_plan, "shouldStop", False)):
     return STOP_SOURCE_SHOULD_STOP
   return STOP_SOURCE_NONE
+
+
+def _same_persistent_stop_source(current_source: int, prev_source: int) -> bool:
+  if current_source == STOP_SOURCE_NONE or prev_source == STOP_SOURCE_NONE:
+    return False
+  if current_source == prev_source:
+    return True
+  final_stop_sources = {STOP_SOURCE_LEAD, STOP_SOURCE_MODEL, STOP_SOURCE_SHOULD_STOP, STOP_SOURCE_CREEP}
+  return bool(current_source in final_stop_sources and prev_source in final_stop_sources)
 
 
 def _safe_ttc(lead_distance: float, lead_v_rel: float) -> float:
@@ -631,7 +639,8 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
   prev_required_valid = bool(getattr(prev_state, "stop_required_decel_valid", False)) if prev_state is not None else False
   prev_source_persist_sec = max(0.0, _safe_float(getattr(prev_state, "stop_source_persist_sec", 0.0))) if prev_state is not None else 0.0
   same_valid_stop_source = bool(source_for_stop != STOP_SOURCE_NONE and required_decel_valid and
-                                prev_stop_source == source_for_stop and prev_required_valid)
+                                prev_required_valid and
+                                _same_persistent_stop_source(source_for_stop, prev_stop_source))
   if same_valid_stop_source:
     stop_source_persist_sec = min(5.0, prev_source_persist_sec + hold_dt)
   elif source_for_stop != STOP_SOURCE_NONE and required_decel_valid:
@@ -677,7 +686,7 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                               model_hard_brake or
                               (lead_distance > 0.0 and
                                lead_distance <= stop_distance_buffer + STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN))
-  final_stop_commit = bool(v_ego <= STOP_ASSIST_CRAWL_MAX_SPEED and
+  final_stop_commit = bool(v_ego <= STOP_ASSIST_FINAL_COMMIT_MAX_SPEED and
                            final_stop_source and
                            required_decel_valid and
                            planner_already_braking and

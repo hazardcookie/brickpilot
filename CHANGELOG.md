@@ -5,6 +5,30 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.4 - 2026-05-21
+
+Staging stop-stack build based on the calibrated 0.5.3.1 route. Steering and
+broad catch-up behavior remain frozen; this release narrows in on final-stop
+source persistence and last-few-mph stop commitment.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal candidate code to
+  `50400`.
+- Kept stop assist bounded to valid stop geometry and normal LongControl, but
+  allowed final-stop source persistence to survive lead/model/shouldStop/creep
+  source churn when each frame remains a valid stop source.
+- Let the final-stop commit branch begin below 6 mph, instead of only below 5
+  mph, so persistent valid stops can commit slightly earlier before the Tucson
+  PHEV falls into weak coast/creep behavior.
+- Raised only the narrow final-stop commit target and extra-decel cap. Generic
+  planner-debt and controller-underbrake braking authority are unchanged.
+
+### Validation
+
+- Added regression coverage for the 0.5.4 version marker, cross-source
+  final-stop persistence, and the new below-6-mph final-stop commit threshold.
+
 ## 0.5.3.1 - 2026-05-21
 
 Staging build marker for the voice-label telemetry calibration workflow. Live

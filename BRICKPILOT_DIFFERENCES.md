@@ -195,6 +195,13 @@ explicit manual/driver brake and gas narration can be snapped to logged
 telemetry edges in the tools pipeline, and enough high-confidence anchors can
 produce a route-level voice timing offset for subjective labels.
 
+In 0.5.4, Brickpilot uses the calibrated 0.5.3.1 stop-stack labels to target
+final-stop behavior without changing steering or broad catch-up tuning.
+Persistent valid stop context can now carry through lead/model/shouldStop/creep
+source churn, and the bounded final-stop commit branch may begin below 6 mph so
+the last few mph of lead/model stops get firmer commitment before weak PHEV
+coast/creep behavior takes over. Generic braking authority is unchanged.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
