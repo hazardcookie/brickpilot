@@ -41,6 +41,7 @@ from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   STOP_INVALID_FAR_NONCLOSING_LEAD,
   STOP_SOURCE_CREEP,
   STOP_SOURCE_LEAD,
+  STOP_SOURCE_MODEL,
   STOP_SOURCE_SHOULD_STOP,
   ULTIMATE_100K_CANDIDATE_ID,
   ULTIMATE_100K_CANDIDATE_HASH,
@@ -192,11 +193,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_054_marks_stop_source_persistence_build(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.4")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50400)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_054_stop_source_persistence")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 777054000)
+  def test_055_marks_native_scc_stop_mimic_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.5")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50500)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_055_native_scc_stop_mimic")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 777055000)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)
@@ -214,9 +215,9 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertAlmostEqual(MAX_ASSISTED_A_TARGET, 2.000)
     self.assertAlmostEqual(BRICKPILOT_HOLD_SECONDS, 2.050)
     self.assertAlmostEqual(PLANNER_FLOOR_LIVE_ACCEL, 0.72)
-    self.assertAlmostEqual(STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL, 1.08)
-    self.assertAlmostEqual(STOP_ASSIST_FINAL_COMMIT_MAX_SPEED, 6.0 * 0.44704, places=5)
-    self.assertAlmostEqual(STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC, 0.50)
+    self.assertAlmostEqual(STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL, 1.22)
+    self.assertAlmostEqual(STOP_ASSIST_FINAL_COMMIT_MAX_SPEED, 8.0 * 0.44704, places=5)
+    self.assertAlmostEqual(STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC, 0.35)
     self.assertAlmostEqual(STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL, 0.98)
 
   def test_scope_is_tucson_canfd_openpilot_long_only(self):
@@ -480,10 +481,12 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     stop_plan = LongPlan(aTarget=-0.05, shouldStop=True, longitudinalPlanSource="cruise", speeds=[5.0, 2.0, 0.0])
     state = self.run_assist(cs=CS(vEgo=5.0, aEgo=-0.02, vCruise=45.0), plan=stop_plan)
 
-    self.assertTrue(state.stop_active)
+    self.assertFalse(state.stop_active)
     self.assertEqual(state.stop_source, STOP_SOURCE_SHOULD_STOP)
+    self.assertTrue(state.stop_shadow_candidate)
     self.assertGreaterEqual(abs(state.stop_required_decel), 0.35)
-    self.assertLess(state.assisted_a_target, state.a_target)
+    self.assertEqual(state.assisted_a_target, state.a_target)
+    self.assertEqual(state.stop_assist_reason, STOP_ASSIST_REASON_NONE)
 
   def test_crawl_stop_gets_final_stop_completion_target(self):
     crawl_plan = LongPlan(aTarget=-0.05, shouldStop=True, longitudinalPlanSource="lead0", speeds=[1.0, 0.2, 0.0])
@@ -532,10 +535,10 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertEqual(model_state.stop_assist_reason, STOP_ASSIST_REASON_FINAL_STOP_COMMIT)
     self.assertLessEqual(model_state.assisted_a_target, -STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL)
 
-  def test_final_stop_commit_can_start_before_five_mph_when_source_persists(self):
-    lead_plan = LongPlan(aTarget=-0.20, longitudinalPlanSource="lead0", speeds=[2.5, 1.5, 0.0])
-    approach = CS(vEgo=2.5, aEgo=-0.04, vCruise=30.0)
-    radar = RadarState(Lead(status=True, dRel=7.0, vRel=-1.0))
+  def test_final_stop_commit_can_start_below_eight_mph_when_source_persists(self):
+    lead_plan = LongPlan(aTarget=-0.20, longitudinalPlanSource="lead0", speeds=[3.2, 1.5, 0.0])
+    approach = CS(vEgo=3.2, aEgo=-0.04, vCruise=30.0)
+    radar = RadarState(Lead(status=True, dRel=8.0, vRel=-1.0))
 
     state = None
     for _ in range(3):
@@ -543,10 +546,42 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
 
     assert state is not None
     self.assertGreater(approach.vEgo, 5.0 * 0.44704)
+    self.assertGreater(approach.vEgo, 6.0 * 0.44704)
     self.assertLessEqual(approach.vEgo, STOP_ASSIST_FINAL_COMMIT_MAX_SPEED)
     self.assertEqual(state.stop_source, STOP_SOURCE_LEAD)
     self.assertEqual(state.stop_assist_reason, STOP_ASSIST_REASON_FINAL_STOP_COMMIT)
     self.assertLessEqual(state.assisted_a_target, -STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL)
+
+  def test_model_only_stop_remains_shadow_without_prior_lead_context(self):
+    model_stop = LongPlan(aTarget=-0.10, longitudinalPlanSource="cruise", speeds=[3.0, 1.5, 0.0])
+    model_v2 = ModelV2(action=Action(shouldStop=True))
+
+    state = self.run_assist(cs=CS(vEgo=3.0, aEgo=-0.02, vCruise=30.0), plan=model_stop, model_v2=model_v2)
+
+    self.assertFalse(state.stop_active)
+    self.assertTrue(state.stop_shadow_candidate)
+    self.assertEqual(state.stop_source, STOP_SOURCE_MODEL)
+    self.assertTrue(state.stop_required_decel_valid)
+    self.assertEqual(state.stop_assist_reason, STOP_ASSIST_REASON_NONE)
+
+  def test_model_source_can_inherit_valid_lead_final_stop_context(self):
+    lead_plan = LongPlan(aTarget=-0.20, shouldStop=True, longitudinalPlanSource="lead0", speeds=[2.0, 1.0, 0.0])
+    model_plan = LongPlan(aTarget=-0.20, longitudinalPlanSource="cruise", speeds=[2.0, 1.0, 0.0])
+    crawl = CS(vEgo=2.0, aEgo=-0.03, vCruise=25.0)
+    radar = RadarState(Lead(status=True, dRel=6.0, vRel=-0.8))
+
+    lead_state = None
+    for _ in range(2):
+      lead_state = self.run_assist(cs=crawl, plan=lead_plan, radar=radar, prev_state=lead_state, dt=0.20)
+    assert lead_state is not None
+
+    model_state = self.run_assist(cs=crawl, plan=model_plan, radar=RadarState(),
+                                  model_v2=ModelV2(action=Action(shouldStop=True)),
+                                  prev_state=lead_state, dt=0.20)
+
+    self.assertEqual(model_state.stop_source, STOP_SOURCE_MODEL)
+    self.assertTrue(model_state.stop_active)
+    self.assertEqual(model_state.stop_assist_reason, STOP_ASSIST_REASON_FINAL_STOP_COMMIT)
 
   def test_mild_high_ttc_lead_uses_less_blunt_buffer(self):
     mild_plan = LongPlan(aTarget=-0.10, longitudinalPlanSource="lead0", speeds=[6.0, 5.8, 5.5])

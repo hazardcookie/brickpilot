@@ -202,6 +202,14 @@ source churn, and the bounded final-stop commit branch may begin below 6 mph so
 the last few mph of lead/model stops get firmer commitment before weak PHEV
 coast/creep behavior takes over. Generic braking authority is unchanged.
 
+In 0.5.5, Brickpilot uses the accidental Alpha Long OFF/native longitudinal
+routes as a reference for lead-stop finishing. The live stop branch now prefers
+lead and creep/final-hold sources, lets lead-backed final-stop commitment begin
+below 8 mph, and demotes broad model-only or generic `shouldStop` planner-debt
+braking to shadow/diagnostic unless it inherits a valid lead/final-stop context.
+This is meant to make Alpha Long ON behave more like the native SCC stops that
+felt good, without adding no-lead stop-sign/traffic-light heroics.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the

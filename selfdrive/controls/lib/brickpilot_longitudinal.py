@@ -117,14 +117,15 @@ class BrickpilotLongitudinalAssistState:
   stop_source_persist_sec: float = 0.0
 
 
-# Brickpilot 0.5.4 keeps the stable 0.4.9 steering baseline and targets the
-# 0.5.3.1 labeled stop-stack finding: final-stop events often switch among
-# lead/model/creep sources right when the car should commit to the last few mph.
-# Live braking remains bounded to valid, persistent stop contexts.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.4"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50400
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_054_stop_source_persistence"
-ULTIMATE_100K_CANDIDATE_HASH = 777054000
+# Brickpilot 0.5.5 keeps the stable 0.4.9 steering baseline and uses the
+# accidental Alpha Long OFF/native SCC routes as a reference for final lead-stop
+# behavior. Live stop help is biased toward lead/creep final-stop contexts and
+# broad model-only planner-debt braking stays shadow-only unless it inherits a
+# valid lead/final-stop context.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.5"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50500
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_055_native_scc_stop_mimic"
+ULTIMATE_100K_CANDIDATE_HASH = 777055000
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
@@ -180,11 +181,11 @@ STOP_ASSIST_CONTROLLER_DEBT_MIN = 0.35
 STOP_ASSIST_CONTROLLER_RECOVERY_MIN_EXTRA_DECEL = 0.26
 STOP_ASSIST_CONTROLLER_RECOVERY_GAIN = 0.55
 STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL = 0.98
-STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL = 1.14
-STOP_ASSIST_FINAL_COMMIT_MAX_SPEED = 6.0 * CV.MPH_TO_MS
-STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC = 0.50
-STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL = 1.08
-STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN = 1.25
+STOP_ASSIST_FINAL_COMMIT_MAX_EXTRA_DECEL = 1.26
+STOP_ASSIST_FINAL_COMMIT_MAX_SPEED = 8.0 * CV.MPH_TO_MS
+STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC = 0.35
+STOP_ASSIST_FINAL_COMMIT_TARGET_DECEL = 1.22
+STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN = 2.00
 STOP_ASSIST_MAX_TARGET_DECEL = 1.85
 STOP_ASSIST_CRAWL_MAX_SPEED = 5.0 * CV.MPH_TO_MS
 STOP_ASSIST_CRAWL_TARGET_DECEL = 0.72
@@ -673,13 +674,30 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                        driver_override, phev_stationary_or_auto_hold)
   controller_underbrake_recovery = bool(controller_debt >= STOP_ASSIST_CONTROLLER_DEBT_MIN and
                                         stop_debt_bucket == STOP_DEBT_BUCKET_CONTROLLER_UNDERBRAKE)
-  lead_stop_live_urgent = bool(source_for_stop != STOP_SOURCE_LEAD or
-                               ttc_valid or
-                               lead_v_rel <= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL or
-                               bool(getattr(long_plan, "shouldStop", False)) or
-                               model_hard_brake)
+  source_is_lead_backed = source_for_stop in (STOP_SOURCE_LEAD, STOP_SOURCE_CREEP)
+  previous_lead_backed_stop = bool(prev_required_valid and prev_stop_source in (STOP_SOURCE_LEAD, STOP_SOURCE_CREEP))
+  inherited_lead_backed_stop = bool(source_for_stop in (STOP_SOURCE_MODEL, STOP_SOURCE_SHOULD_STOP) and
+                                    previous_lead_backed_stop and
+                                    v_ego <= STOP_ASSIST_FINAL_COMMIT_MAX_SPEED)
+  lead_stop_live_urgent = bool(source_for_stop == STOP_SOURCE_LEAD and
+                               (ttc_valid or
+                                lead_v_rel <= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL or
+                                bool(getattr(long_plan, "shouldStop", False)) or
+                                model_hard_brake or
+                                (lead_distance > 0.0 and
+                                 lead_distance <= stop_distance_buffer + STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN)))
+  creep_stop_live_urgent = bool(source_for_stop == STOP_SOURCE_CREEP and
+                                (ttc_valid or
+                                 bool(getattr(long_plan, "shouldStop", False)) or
+                                 lead_distance <= stop_distance_buffer + STOP_ASSIST_FINAL_COMMIT_GAP_MARGIN or
+                                 stop_source_persist_sec >= STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC))
+  inherited_model_stop_live_urgent = bool(inherited_lead_backed_stop and
+                                          (model_hard_brake or
+                                           bool(getattr(long_plan, "shouldStop", False)) or
+                                           stop_source_persist_sec >= STOP_ASSIST_FINAL_COMMIT_SOURCE_PERSIST_SEC))
+  stop_live_urgent = bool(lead_stop_live_urgent or creep_stop_live_urgent or inherited_model_stop_live_urgent)
   planner_already_braking = bool(a_target <= -0.05)
-  final_stop_source = source_for_stop in (STOP_SOURCE_LEAD, STOP_SOURCE_MODEL, STOP_SOURCE_SHOULD_STOP, STOP_SOURCE_CREEP)
+  final_stop_source = bool(source_is_lead_backed or inherited_lead_backed_stop)
   final_stop_gap_valid = bool(ttc_valid or
                               lead_v_rel <= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL or
                               bool(getattr(long_plan, "shouldStop", False)) or
@@ -695,10 +713,10 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                            not cs_standstill)
   stop_should_activate = bool(stop_shadow_candidate and not stop_hard_blocked and not phev_stationary_or_auto_hold and
                               required_decel_valid and
-                              ((stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent) or
-                               (planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent) or
-                               controller_underbrake_recovery or
-                               (regen_light_not_enough and lead_stop_live_urgent) or
+                              ((stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and stop_live_urgent) or
+                               (planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and stop_live_urgent) or
+                               (controller_underbrake_recovery and stop_live_urgent) or
+                               (regen_light_not_enough and stop_live_urgent) or
                                final_stop_commit))
   stop_assist_reason = STOP_ASSIST_REASON_NONE
   if stop_should_activate:
@@ -706,11 +724,11 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
       stop_assist_reason = STOP_ASSIST_REASON_FINAL_STOP_COMMIT
     elif controller_underbrake_recovery:
       stop_assist_reason = STOP_ASSIST_REASON_CONTROLLER_UNDERBRAKE
-    elif regen_light_not_enough and lead_stop_live_urgent:
+    elif regen_light_not_enough and stop_live_urgent:
       stop_assist_reason = STOP_ASSIST_REASON_REGEN_LIGHT_NOT_ENOUGH
-    elif planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent:
+    elif planner_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and stop_live_urgent:
       stop_assist_reason = STOP_ASSIST_REASON_PLANNER_DEBT
-    elif stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and lead_stop_live_urgent:
+    elif stop_debt >= STOP_ASSIST_MIN_BRAKE_DEBT and stop_live_urgent:
       stop_assist_reason = STOP_ASSIST_REASON_BRAKE_DEBT
   stop_assist_target = a_target
   stop_assist_delta = 0.0

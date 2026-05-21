@@ -5,6 +5,34 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.5 - 2026-05-21
+
+Staging native-SCC stop-mimic build based on the Alpha Long OFF comparison
+routes. Steering and broad catch-up behavior remain frozen; this release uses
+the native/OEM-style lead-stop behavior as a reference for Alpha Long ON stop
+finishing.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal candidate code to
+  `50500`.
+- Biased live stop assist toward lead and creep/final-hold sources. Model-only
+  and generic `shouldStop` planner-debt braking remain shadow/diagnostic unless
+  they inherit a valid lead/final-stop context from recent frames.
+- Let lead-backed final-stop commitment begin below 8 mph with a shorter source
+  persistence requirement, a slightly larger close-gap margin, and a firmer
+  bounded final-stop target. Generic controller-underbrake and catch-up
+  authority remain unchanged.
+- Kept the PHEV regen invariant: light/coast regen may explain context and block
+  positive catch-up, but it does not count as sufficient braking and does not
+  block required lead/final-stop decel.
+
+### Validation
+
+- Added regression coverage for the 0.5.5 version marker, model-only stop
+  demotion, inherited lead-final-stop model fallback, and the below-8-mph
+  lead-backed final-stop threshold.
+
 ## 0.5.4 - 2026-05-21
 
 Staging stop-stack build based on the calibrated 0.5.3.1 route. Steering and
