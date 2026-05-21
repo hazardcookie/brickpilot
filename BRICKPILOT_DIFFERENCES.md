@@ -210,6 +210,15 @@ braking to shadow/diagnostic unless it inherits a valid lead/final-stop context.
 This is meant to make Alpha Long ON behave more like the native SCC stops that
 felt good, without adding no-lead stop-sign/traffic-light heroics.
 
+In 0.5.6, Brickpilot keeps the 0.5.5 stop authority cap but adds rolling-traffic
+arbitration. Low-speed lead traffic is split into rolling-follow,
+final-stop-commit, urgent-recovery, and creep-hold modes. A lead that is still
+rolling slowly blocks final-stop commit unless TTC, gap, or closing speed makes
+the situation genuinely urgent; the rolling-follow branch uses a smaller
+extra-decel cap and a relaxed rolling buffer. This targets the 0.5.5 stress
+route failure mode where Alpha Long ON could overcommit to a full stop while
+traffic was only creeping.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the

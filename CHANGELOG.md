@@ -5,6 +5,36 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.6 - 2026-05-21
+
+Staging rolling-traffic arbitration build based on the 0.5.5 stop-and-go
+stress route and the Alpha Long OFF/native SCC reference comparison. Steering,
+catch-up tuning, and maximum final-stop authority remain frozen; this release
+changes when final-stop behavior is allowed.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal candidate code to
+  `50600`.
+- Added a live low-speed stop mode split: `rolling_follow`,
+  `final_stop_commit`, `urgent_brake_recovery`, and `creep_hold`.
+- Kept the 0.5.5 final-stop decel cap, but final-stop commit now requires a
+  stopped/near-stopped lead persistence signal or a genuinely urgent close-gap,
+  TTC, or closing-speed context. A low-speed lead that is still rolling blocks
+  final-stop commit.
+- Added a gentler rolling-follow branch with a smaller extra-decel cap and a
+  relaxed rolling buffer so Alpha Long ON can mimic native SCC behavior in
+  slowly rolling traffic without overcommitting to a complete stop.
+- Added stop arbitration telemetry: estimated lead absolute speed,
+  near-stopped-lead persistence, rolling-lead confidence, final-stop allowed,
+  final-stop blocked reason, and stop mode.
+
+### Validation
+
+- Added regression coverage proving that a rolling lead blocks final-stop
+  commit and uses the gentler rolling-follow cap, while a persistent
+  near-stopped lead still allows final-stop commit.
+
 ## 0.5.5 - 2026-05-21
 
 Staging native-SCC stop-mimic build based on the Alpha Long OFF comparison

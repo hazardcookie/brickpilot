@@ -943,6 +943,12 @@ struct ControlsState @0x97ff69c53601abf1 {
     stopProfile @72 :UInt8;          # 0 stockish shadow, 1 Tucson PHEV stable, 2 traffic shadow
     stopAssistReason @73 :UInt8;     # 0 none, 1 brake debt, 2 planner, 3 controller, 4 final stop, 5 light regen
     stopSourcePersistSec @74 :Float32;
+    stopMode @75 :UInt8;             # 0 none, 1 rolling follow, 2 final stop, 3 urgent recovery, 4 creep hold
+    leadAbsSpeed @76 :Float32;       # estimated lead absolute speed, m/s, from vEgo + radar vRel
+    leadNearStoppedPersistSec @77 :Float32;
+    rollingLeadConfidence @78 :Float32;
+    finalStopAllowed @79 :Bool;
+    finalStopBlockedReason @80 :UInt8; # 0 none, 1 no source, 2 invalid geometry, 3 planner not braking, 4 source not persistent, 5 rolling lead, 6 not urgent, 7 standstill, 8 speed range
   }
 
   deprecated :group {
