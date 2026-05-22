@@ -17,6 +17,11 @@ from openpilot.selfdrive.controls.lib.brickpilot_longitudinal import (
   HIGH_CONF_RAMP_MIN_DEFICIT,
   HIGH_CONF_RAMP_MIN_SPEED,
   HIGH_CONF_RAMP_MIN_TRAJECTORY_DEFICIT,
+  LEAD_PACING_MAX_ACCEL_DELTA,
+  LEAD_PACING_MAX_DECEL_DELTA,
+  LEAD_PACING_MODE_ACCEL,
+  LEAD_PACING_MODE_DECEL,
+  LEAD_PACING_TARGET_TIME_GAP,
   MAX_ASSIST_DELTA,
   MAX_ASSISTED_A_TARGET,
   MIN_CATCHUP_SPEED_DEFICIT,
@@ -199,11 +204,11 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
                                                  longitudinal_plan_sp_valid=plan_sp_valid,
                                                  car_state_sp=car_state_sp, prev_state=prev_state, dt=dt)
 
-  def test_056_marks_rolling_stop_arbitration_build(self):
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.6")
-    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50600)
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_056_rolling_stop_arbitration")
-    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 777056000)
+  def test_057_marks_native_pacing_mimic_build(self):
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION, "0.5.7")
+    self.assertEqual(BRICKPILOT_LONGITUDINAL_VERSION_CODE, 50700)
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_ID, "tucson_phev_057_native_lead_pacing")
+    self.assertEqual(ULTIMATE_100K_CANDIDATE_HASH, 777057000)
     self.assertAlmostEqual(MIN_CATCHUP_SPEED_DEFICIT, 2.0 * 0.44704, places=5)
     self.assertAlmostEqual(MIN_SET_SPEED_DEFICIT_SPEED, 30.0 * 0.44704, places=5)
     self.assertAlmostEqual(MAX_ASSIST_DELTA, 0.980)
@@ -227,6 +232,9 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertAlmostEqual(STOP_ASSIST_FINAL_COMMIT_NEAR_STOPPED_PERSIST_SEC, 0.60)
     self.assertAlmostEqual(STOP_ASSIST_CONTROLLER_RECOVERY_MAX_EXTRA_DECEL, 0.98)
     self.assertAlmostEqual(STOP_ASSIST_ROLLING_FOLLOW_MAX_EXTRA_DECEL, 0.38)
+    self.assertAlmostEqual(LEAD_PACING_TARGET_TIME_GAP, 1.05)
+    self.assertAlmostEqual(LEAD_PACING_MAX_ACCEL_DELTA, 0.26)
+    self.assertAlmostEqual(LEAD_PACING_MAX_DECEL_DELTA, 0.30)
 
   def test_scope_is_tucson_canfd_openpilot_long_only(self):
     self.assertTrue(is_brickpilot_tucson_phev_scope(CP()))
@@ -353,11 +361,68 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
     self.assertFalse(state.active)
     self.assertIn(BrickpilotLongitudinalSuppressor.NOT_CRUISE_SOURCE, state.suppressors)
 
-  def test_far_low_lead_is_not_live_promoted_in_0396(self):
+  def test_far_rolling_lead_gets_small_native_pacing_accel(self):
     state = self.run_assist(radar=RadarState(Lead(status=True, dRel=80.0, vRel=0.2)))
-    self.assertFalse(state.active)
+
+    self.assertTrue(state.active)
     self.assertIn(BrickpilotLongitudinalSuppressor.LEAD_PRESENT_OR_LIMITING, state.suppressors)
-    self.assertEqual(state.assisted_a_target, state.a_target)
+    self.assertEqual(state.lead_pacing_mode, LEAD_PACING_MODE_ACCEL)
+    self.assertGreater(state.lead_pacing_target_gap, 0.0)
+    self.assertGreater(state.lead_pacing_gap_error, 0.0)
+    self.assertGreater(state.lead_pacing_assist_delta, 0.0)
+    self.assertLessEqual(state.lead_pacing_assist_delta, LEAD_PACING_MAX_ACCEL_DELTA)
+    self.assertAlmostEqual(state.assisted_a_target, state.a_target + state.lead_pacing_assist_delta)
+    self.assertFalse(state.stop_active)
+
+  def test_close_rolling_lead_gets_small_native_pacing_decel(self):
+    cruising = CS(vEgo=10.0, aEgo=0.0, vCruise=70.0)
+    plan = LongPlan(aTarget=0.10, speeds=[10.0, 10.2, 10.4])
+    radar = RadarState(Lead(status=True, dRel=7.0, vRel=-0.5))
+
+    state = self.run_assist(cs=cruising, plan=plan, radar=radar)
+
+    self.assertTrue(state.active)
+    self.assertEqual(state.lead_pacing_mode, LEAD_PACING_MODE_DECEL)
+    self.assertLess(state.lead_pacing_gap_error, 0.0)
+    self.assertLess(state.lead_pacing_assist_delta, 0.0)
+    self.assertGreaterEqual(state.lead_pacing_assist_delta, -LEAD_PACING_MAX_DECEL_DELTA)
+    self.assertLess(state.assisted_a_target, state.a_target)
+    self.assertFalse(state.stop_active)
+
+  def test_urgent_stop_takes_priority_over_native_pacing(self):
+    weak_plan = LongPlan(aTarget=0.05, longitudinalPlanSource="lead0", speeds=[7.0, 6.0, 4.0])
+    closing = CS(vEgo=6.0, aEgo=-0.10, vCruise=45.0)
+    radar = RadarState(Lead(status=True, dRel=13.0, vRel=-2.2))
+
+    state = self.run_assist(cs=closing, plan=weak_plan, radar=radar)
+
+    self.assertTrue(state.stop_active)
+    self.assertLess(state.stop_assist_delta, 0.0)
+    self.assertEqual(state.lead_pacing_assist_delta, 0.0)
+
+  def test_native_pacing_rate_limited_from_previous_delta(self):
+    previous = self.run_assist(radar=RadarState(Lead(status=True, dRel=80.0, vRel=0.2)), dt=0.20)
+    self.assertTrue(previous.lead_pacing_jerk_limited)
+
+    next_state = self.run_assist(radar=RadarState(Lead(status=True, dRel=80.0, vRel=0.2)),
+                                 prev_state=previous, dt=0.20)
+
+    self.assertGreater(next_state.lead_pacing_assist_delta, previous.lead_pacing_assist_delta)
+    self.assertLessEqual(next_state.lead_pacing_assist_delta, LEAD_PACING_MAX_ACCEL_DELTA)
+
+  def test_native_pacing_obeys_hard_safety_vetoes(self):
+    cases = [
+      dict(cs=CS(gasPressed=True)),
+      dict(cs=CS(brakePressed=True)),
+      dict(cs=CS(steeringPressed=True)),
+      dict(curvature=0.004),
+      dict(car_state_sp=CarStateSP(brickpilotPhevFaB4U8=220)),
+    ]
+    for kwargs in cases:
+      with self.subTest(kwargs=kwargs):
+        state = self.run_assist(radar=RadarState(Lead(status=True, dRel=80.0, vRel=0.2)), **kwargs)
+        self.assertFalse(state.active)
+        self.assertEqual(state.lead_pacing_assist_delta, 0.0)
 
   def test_short_non_safety_planner_gap_holds_only_after_clean_activation(self):
     gap_plan = LongPlan(aTarget=0.10, speeds=[20.0, 20.4, 20.6])
@@ -722,7 +787,6 @@ class TestBrickpilotLongitudinalAssist(unittest.TestCase):
       (dict(cs=CS(gasPressed=True)), BrickpilotLongitudinalSuppressor.DRIVER_OVERRIDE),
       (dict(cs=CS(brakePressed=True)), BrickpilotLongitudinalSuppressor.DRIVER_OVERRIDE),
       (dict(cs=CS(steeringPressed=True)), BrickpilotLongitudinalSuppressor.STEERING_OVERRIDE),
-      (dict(radar=RadarState(Lead(status=True, dRel=90.0, vRel=0.0))), BrickpilotLongitudinalSuppressor.LEAD_PRESENT_OR_LIMITING),
       (dict(curvature=0.004), BrickpilotLongitudinalSuppressor.HIGH_LATERAL_DEMAND),
       (dict(cs=CS(vCruise=75.0), plan=LongPlan(speeds=[20.0, 20.5])), BrickpilotLongitudinalSuppressor.NO_CATCHUP_DEMAND),
       (dict(cs=CS(aEgo=0.53)), BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL),

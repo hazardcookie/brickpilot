@@ -949,6 +949,12 @@ struct ControlsState @0x97ff69c53601abf1 {
     rollingLeadConfidence @78 :Float32;
     finalStopAllowed @79 :Bool;
     finalStopBlockedReason @80 :UInt8; # 0 none, 1 no source, 2 invalid geometry, 3 planner not braking, 4 source not persistent, 5 rolling lead, 6 not urgent, 7 standstill, 8 speed range
+    leadPacingMode @81 :UInt8;         # 0 none, 1 shadow, 2 accel, 3 decel, 4 coast
+    leadPacingTargetGap @82 :Float32;  # native SCC mimic target gap, m
+    leadPacingGapError @83 :Float32;   # positive means current lead gap is farther than target
+    leadPacingVRel @84 :Float32;       # radar lead relative speed used by pacing path, m/s
+    leadPacingAssistDelta @85 :Float32;# signed change from planner aTarget; small +/- pacing nudge
+    leadPacingJerkLimited @86 :Bool;
   }
 
   deprecated :group {

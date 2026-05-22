@@ -5,6 +5,34 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.7 - 2026-05-22
+
+Staging native lead-pacing mimic build based on the 0.5.6 Alpha Long ON/OFF
+comparison routes. This release does not raise final-stop authority; it adds a
+small signed radar-lead pacing path so Alpha Long ON can feel less like the
+farthest native following setting while preserving 0.5.6 stop arbitration.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal candidate code to
+  `50700`.
+- Added native-SCC mimic lead pacing for rolling lead traffic. When the radar
+  lead is valid, traffic is not in an urgent stop, and the current gap is far
+  from a Tucson-specific target, Brickpilot can apply a small positive or
+  negative `aTarget` nudge through the normal LongControl path.
+- Kept true stop behavior prioritized. Active final-stop, urgent stop recovery,
+  driver gas/brake, steering override, high lateral demand, PHEV regen/brake
+  context, DEC/SCC turn context, and radar/model mismatch remain hard blocks for
+  the lead-pacing path.
+- Added `brickpilotShadow` lead-pacing telemetry: mode, target gap, gap error,
+  radar lead vRel, signed pacing delta, and jerk-limited status.
+
+### Validation
+
+- Added regression coverage for 0.5.7 version markers, far rolling-lead accel
+  pacing, close/closing lead decel pacing, urgent-stop priority, lead-pacing
+  rate limiting, and hard safety vetoes.
+
 ## 0.5.6 - 2026-05-21
 
 Staging rolling-traffic arbitration build based on the 0.5.5 stop-and-go

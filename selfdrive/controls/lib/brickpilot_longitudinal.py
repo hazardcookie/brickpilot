@@ -50,6 +50,12 @@ STOP_MODE_FINAL_STOP_COMMIT = 2
 STOP_MODE_URGENT_BRAKE_RECOVERY = 3
 STOP_MODE_CREEP_HOLD = 4
 
+LEAD_PACING_MODE_NONE = 0
+LEAD_PACING_MODE_SHADOW = 1
+LEAD_PACING_MODE_ACCEL = 2
+LEAD_PACING_MODE_DECEL = 3
+LEAD_PACING_MODE_COAST = 4
+
 FINAL_STOP_BLOCK_NONE = 0
 FINAL_STOP_BLOCK_NO_FINAL_SOURCE = 1
 FINAL_STOP_BLOCK_GEOMETRY_INVALID = 2
@@ -137,16 +143,22 @@ class BrickpilotLongitudinalAssistState:
   rolling_lead_confidence: float = 0.0
   final_stop_allowed: bool = False
   final_stop_blocked_reason: int = FINAL_STOP_BLOCK_NONE
+  lead_pacing_mode: int = LEAD_PACING_MODE_NONE
+  lead_pacing_target_gap: float = 0.0
+  lead_pacing_gap_error: float = 0.0
+  lead_pacing_v_rel: float = 0.0
+  lead_pacing_assist_delta: float = 0.0
+  lead_pacing_jerk_limited: bool = False
 
 
-# Brickpilot 0.5.6 keeps the 0.5.5 stop authority cap but adds rolling-traffic
-# arbitration. A low-speed lead that is still moving gets a gentler rolling
-# follow mode; final-stop commit now requires a stopped/near-stopped lead or a
-# genuinely urgent close-gap/TTC context.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.6"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50600
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_056_rolling_stop_arbitration"
-ULTIMATE_100K_CANDIDATE_HASH = 777056000
+# Brickpilot 0.5.7 keeps the 0.5.6 final-stop arbitration and adds a separate
+# native-SCC mimic path for lead pacing. Lead pacing is small, signed, and
+# rate-limited so it can reduce "distance 4" feel without becoming broad brake
+# authority or no-lead stop logic.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.7"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50700
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_057_native_lead_pacing"
+ULTIMATE_100K_CANDIDATE_HASH = 777057000
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
@@ -228,6 +240,19 @@ STOP_ASSIST_BUFFER_RELAX_AMOUNT = 0.85
 STOP_ASSIST_MIN_STOP_DISTANCE = 1.0
 STOP_ASSIST_MAX_VALID_TTC = 10.0
 STOP_ASSIST_MIN_VALID_CLOSING_VREL = -0.25
+LEAD_PACING_MIN_SPEED = 3.0 * CV.MPH_TO_MS
+LEAD_PACING_MAX_SPEED = 45.0 * CV.MPH_TO_MS
+LEAD_PACING_TARGET_TIME_GAP = 1.05
+LEAD_PACING_TARGET_MIN_GAP = 5.0
+LEAD_PACING_TARGET_MAX_GAP = 24.0
+LEAD_PACING_GAP_DEADBAND = 2.2
+LEAD_PACING_VREL_DEADBAND = 0.25
+LEAD_PACING_MAX_ACCEL_DELTA = 0.26
+LEAD_PACING_MAX_DECEL_DELTA = 0.30
+LEAD_PACING_GAP_GAIN = 0.030
+LEAD_PACING_VREL_GAIN = 0.145
+LEAD_PACING_JERK_LIMIT_UP = 0.75
+LEAD_PACING_JERK_LIMIT_DOWN = 1.00
 BRICKPILOT_HOLD_SECONDS = 2.050
 BRICKPILOT_HOLD_DECAY = 0.550
 LEAD_PRESENT_DISTANCE_UNKNOWN = 0.01
@@ -370,8 +395,8 @@ def _lead_present_or_limiting(long_plan: Any, radar_state: Any) -> tuple[bool, f
 
   d_rel = _safe_float(getattr(lead, "dRel", 0.0)) if lead is not None else 0.0
   v_rel = _safe_float(getattr(lead, "vRel", 0.0)) if lead is not None else 0.0
-  # 0.3.9.7 keeps the 0.3.9.6 road behavior: suppress all radar/plan-lead contexts. The replay
-  # lab found far/low-lead promising but not proven enough for live promotion.
+  # Lead presence still suppresses broad catch-up assist. 0.5.7 has a separate,
+  # smaller lead-pacing path below so lead contexts can be handled explicitly.
   present_or_limiting = radar_lead or plan_has_lead or lead_source
   return present_or_limiting, d_rel if radar_lead else 0.0, bool(radar_lead and v_rel < -0.1), radar_lead
 
@@ -394,6 +419,23 @@ def _stop_distance_buffer(v_ego: float, lead_v_rel: float = 0.0, ttc: float = 0.
       lead_v_rel >= STOP_ASSIST_BUFFER_RELAX_MAX_CLOSING_VREL):
     return max(STOP_ASSIST_HIGH_SPEED_BUFFER, base_buffer - STOP_ASSIST_BUFFER_RELAX_AMOUNT)
   return base_buffer
+
+
+def _lead_pacing_target_gap(v_ego: float, lead_abs_speed: float) -> float:
+  reference_speed = max(0.0, min(max(v_ego, lead_abs_speed), LEAD_PACING_MAX_SPEED))
+  return float(np.clip(LEAD_PACING_TARGET_MIN_GAP + LEAD_PACING_TARGET_TIME_GAP * reference_speed,
+                       LEAD_PACING_TARGET_MIN_GAP,
+                       LEAD_PACING_TARGET_MAX_GAP))
+
+
+def _rate_limit_signed_delta(target: float, previous: float, dt: float) -> tuple[float, bool]:
+  step_up = LEAD_PACING_JERK_LIMIT_UP * max(0.0, dt)
+  step_down = LEAD_PACING_JERK_LIMIT_DOWN * max(0.0, dt)
+  if target > previous + step_up:
+    return previous + step_up, True
+  if target < previous - step_down:
+    return previous - step_down, True
+  return target, False
 
 
 def _required_lead_stop_decel(v_ego: float, lead_distance: float, distance_buffer: float) -> float:
@@ -844,6 +886,51 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     stop_assist_delta = min(0.0, stop_assist_target - a_target)
     stop_should_activate = bool(stop_assist_delta < -0.01)
 
+  lead_pacing_target_gap = _lead_pacing_target_gap(v_ego, lead_abs_speed) if radar_has_lead and lead_distance > 0.0 else 0.0
+  lead_pacing_gap_error = lead_distance - lead_pacing_target_gap if lead_pacing_target_gap > 0.0 else 0.0
+  lead_pacing_shadow_candidate = bool(enabled_for_vehicle and getattr(CC, "longActive", False) and valid and
+                                      longitudinal_plan_sp_valid and radar_has_lead and lead_distance > 0.0 and
+                                      not cs_standstill and not cruise_standstill and
+                                      v_ego >= LEAD_PACING_MIN_SPEED and v_ego <= LEAD_PACING_MAX_SPEED and
+                                      lead_abs_speed > STOP_ASSIST_LEAD_NEAR_STOPPED_SPEED and
+                                      not getattr(long_plan, "fcw", False) and not model_hard_brake and
+                                      not radar_model_mismatch and not dec_or_scc_active and
+                                      not high_predicted_lateral and not phev_regen_or_brake and
+                                      not phev_stationary_or_auto_hold and
+                                      not getattr(CS, "gasPressed", False) and not getattr(CS, "brakePressed", False) and
+                                      not getattr(CS, "steeringPressed", False) and
+                                      lateral_demand <= STOP_ASSIST_MAX_LATERAL_ACCEL)
+  lead_pacing_mode = LEAD_PACING_MODE_NONE
+  raw_lead_pacing_delta = 0.0
+  if lead_pacing_shadow_candidate:
+    lead_pacing_mode = LEAD_PACING_MODE_COAST
+    too_far_gap = max(0.0, lead_pacing_gap_error - LEAD_PACING_GAP_DEADBAND)
+    too_close_gap = max(0.0, -lead_pacing_gap_error - LEAD_PACING_GAP_DEADBAND)
+    lead_pulling_away = max(0.0, lead_v_rel - LEAD_PACING_VREL_DEADBAND)
+    lead_closing_mild = max(0.0, -lead_v_rel - LEAD_PACING_VREL_DEADBAND)
+    if too_far_gap > 0.0 and lead_v_rel >= -LEAD_PACING_VREL_DEADBAND and a_target >= -0.05 and not stop_live_urgent:
+      raw_lead_pacing_delta = min(LEAD_PACING_MAX_ACCEL_DELTA,
+                                  LEAD_PACING_GAP_GAIN * too_far_gap +
+                                  LEAD_PACING_VREL_GAIN * lead_pulling_away)
+      lead_pacing_mode = LEAD_PACING_MODE_ACCEL if raw_lead_pacing_delta > 0.01 else LEAD_PACING_MODE_SHADOW
+    elif (too_close_gap > 0.0 or lead_closing_mild > 0.0) and not stop_live_urgent:
+      raw_lead_pacing_delta = -min(LEAD_PACING_MAX_DECEL_DELTA,
+                                   LEAD_PACING_GAP_GAIN * too_close_gap +
+                                   LEAD_PACING_VREL_GAIN * lead_closing_mild)
+      lead_pacing_mode = LEAD_PACING_MODE_DECEL if raw_lead_pacing_delta < -0.01 else LEAD_PACING_MODE_SHADOW
+
+  lead_pacing_allowed_suppressors = (BrickpilotLongitudinalSuppressor.LEAD_PRESENT_OR_LIMITING |
+                                     BrickpilotLongitudinalSuppressor.STOP_CREEP_BAND |
+                                     BrickpilotLongitudinalSuppressor.PLANNER_NOT_POSITIVE |
+                                     BrickpilotLongitudinalSuppressor.NO_CATCHUP_DEMAND |
+                                     BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL)
+  lead_pacing_hard_suppressors = suppressors & ~lead_pacing_allowed_suppressors
+  prev_lead_pacing_delta = _safe_float(getattr(prev_state, "lead_pacing_assist_delta", 0.0)) if prev_state is not None else 0.0
+  lead_pacing_delta, lead_pacing_jerk_limited = _rate_limit_signed_delta(raw_lead_pacing_delta, prev_lead_pacing_delta, hold_dt)
+  lead_pacing_live = bool(lead_pacing_shadow_candidate and not stop_should_activate and
+                          lead_pacing_hard_suppressors == BrickpilotLongitudinalSuppressor.NONE and
+                          abs(lead_pacing_delta) > 0.01)
+
   stop_arbitration_fields = {
     "stop_mode": stop_mode,
     "lead_abs_speed": lead_abs_speed,
@@ -851,6 +938,12 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     "rolling_lead_confidence": rolling_lead_confidence,
     "final_stop_allowed": final_stop_allowed,
     "final_stop_blocked_reason": final_stop_blocked_reason,
+    "lead_pacing_mode": lead_pacing_mode,
+    "lead_pacing_target_gap": lead_pacing_target_gap,
+    "lead_pacing_gap_error": lead_pacing_gap_error,
+    "lead_pacing_v_rel": lead_v_rel if radar_has_lead else 0.0,
+    "lead_pacing_assist_delta": lead_pacing_delta if lead_pacing_live else 0.0,
+    "lead_pacing_jerk_limited": bool(lead_pacing_live and lead_pacing_jerk_limited),
   }
 
   clean_shadow_context = bool(enabled_for_vehicle and valid and getattr(CC, "longActive", False) and
@@ -913,6 +1006,46 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              stop_geometry_invalid_reason=stop_geometry_invalid_reason,
                                              stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE,
                                              stop_assist_reason=stop_assist_reason,
+                                             stop_source_persist_sec=stop_source_persist_sec,
+                                             **stop_arbitration_fields)
+
+  if lead_pacing_live:
+    lead_pacing_target = a_target + lead_pacing_delta
+    lead_pacing_target = max(lead_pacing_target, _safe_float(accel_limits[0], -STOP_ASSIST_MAX_TARGET_DECEL))
+    lead_pacing_target = min(lead_pacing_target,
+                             _safe_float(accel_limits[1], CarControllerParams.ACCEL_MAX),
+                             MAX_ASSISTED_A_TARGET)
+    applied_lead_pacing_delta = lead_pacing_target - a_target
+    stop_arbitration_fields["lead_pacing_assist_delta"] = applied_lead_pacing_delta
+    return BrickpilotLongitudinalAssistState(enabled_for_vehicle=enabled_for_vehicle,
+                                             active=True, shadow_candidate=True,
+                                             planner_floor_shadow_candidate=planner_floor_shadow_candidate,
+                                             suppressors=suppressors, a_target=a_target,
+                                             assisted_a_target=lead_pacing_target,
+                                             assist_delta=applied_lead_pacing_delta,
+                                             hold_timer=0.0, hold_target=0.0,
+                                             speed_deficit=speed_deficit,
+                                             accel_lag=accel_lag, lateral_demand=lateral_demand,
+                                             lead_distance=lead_distance, lead_closing=lead_closing,
+                                             stop_shadow_candidate=stop_shadow_candidate,
+                                             stop_source=source_for_stop, stop_brake_state=phev_brake_state,
+                                             stop_required_decel=float(stop_debug["required_decel"]),
+                                             stop_planner_debt=planner_debt,
+                                             stop_controller_debt=controller_debt,
+                                             stop_brake_debt=stop_debt,
+                                             stop_ttc=ttc,
+                                             stop_distance_buffer=stop_distance_buffer,
+                                             stop_source_valid=stop_source_valid,
+                                             stop_required_decel_valid=required_decel_valid,
+                                             stop_ttc_valid=ttc_valid,
+                                             stop_lead_distance=lead_distance,
+                                             stop_lead_v_rel=lead_v_rel,
+                                             stop_requested_decel=float(stop_debug["requested_decel"]),
+                                             stop_actual_decel=float(stop_debug["actual_decel"]),
+                                             stop_debt_bucket=stop_debt_bucket,
+                                             stop_geometry_invalid_reason=stop_geometry_invalid_reason,
+                                             stop_profile=STOP_PROFILE_TUCSON_PHEV_STABLE,
+                                             stop_assist_reason=STOP_ASSIST_REASON_NONE,
                                              stop_source_persist_sec=stop_source_persist_sec,
                                              **stop_arbitration_fields)
 

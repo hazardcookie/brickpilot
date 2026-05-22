@@ -219,6 +219,18 @@ extra-decel cap and a relaxed rolling buffer. This targets the 0.5.5 stress
 route failure mode where Alpha Long ON could overcommit to a full stop while
 traffic was only creeping.
 
+In 0.5.7, Brickpilot uses the 0.5.6 Alpha Long ON/OFF comparison routes to
+target pacing instead of stronger braking. The Alpha Long OFF/native reference
+felt much better at aggressive follow distance, while Alpha Long ON still felt
+too far and bursty in rolling traffic. Brickpilot keeps the 0.5.6 final-stop
+authority and adds a small signed radar-lead pacing branch: far rolling leads
+can receive a bounded positive `aTarget` nudge, close or mildly closing leads
+can receive a bounded negative nudge, and urgent stop/final-stop behavior still
+wins. The new `brickpilotShadow` fields `leadPacingMode`,
+`leadPacingTargetGap`, `leadPacingGapError`, `leadPacingVRel`,
+`leadPacingAssistDelta`, and `leadPacingJerkLimited` make this behavior
+auditable in the research UI and event-card reports.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
