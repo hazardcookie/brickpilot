@@ -56,6 +56,28 @@ LEAD_PACING_MODE_ACCEL = 2
 LEAD_PACING_MODE_DECEL = 3
 LEAD_PACING_MODE_COAST = 4
 
+LEAD_PACING_BLOCK_NONE = 0
+LEAD_PACING_BLOCK_NOT_ELIGIBLE = 1
+LEAD_PACING_BLOCK_DRIVER_OVERRIDE = 2
+LEAD_PACING_BLOCK_HIGH_LAT = 3
+LEAD_PACING_BLOCK_STOP_PRIORITY = 4
+LEAD_PACING_BLOCK_BRAKE_BLEND = 5
+LEAD_PACING_BLOCK_URGENT_TTC = 6
+LEAD_PACING_BLOCK_SOFT_REGEN_DECEL = 7
+LEAD_PACING_BLOCK_DEADBAND = 8
+LEAD_PACING_BLOCK_ENTRY_HOLD = 9
+LEAD_PACING_BLOCK_RATE_LIMIT_ZERO = 10
+LEAD_PACING_BLOCK_HARD_SUPPRESSOR = 11
+
+LEAD_PACING_GATE_ELIGIBLE = 1 << 0
+LEAD_PACING_GATE_DRIVER_OK = 1 << 1
+LEAD_PACING_GATE_LAT_OK = 1 << 2
+LEAD_PACING_GATE_STOP_OK = 1 << 3
+LEAD_PACING_GATE_BRAKE_BLEND_OK = 1 << 4
+LEAD_PACING_GATE_TTC_OK = 1 << 5
+LEAD_PACING_GATE_DELTA_NONZERO = 1 << 6
+LEAD_PACING_GATE_ENTRY_HOLD_OK = 1 << 7
+
 FINAL_STOP_BLOCK_NONE = 0
 FINAL_STOP_BLOCK_NO_FINAL_SOURCE = 1
 FINAL_STOP_BLOCK_GEOMETRY_INVALID = 2
@@ -149,20 +171,39 @@ class BrickpilotLongitudinalAssistState:
   lead_pacing_v_rel: float = 0.0
   lead_pacing_assist_delta: float = 0.0
   lead_pacing_jerk_limited: bool = False
+  lead_pacing_policy_version: int = 0
+  lead_pacing_raw_delta: float = 0.0
+  lead_pacing_live_delta: float = 0.0
+  lead_pacing_delta_after_rate_limit: float = 0.0
+  lead_pacing_gate_mask: int = 0
+  lead_pacing_block_reason: int = LEAD_PACING_BLOCK_NONE
+  lead_pacing_v_lead: float = 0.0
+  lead_pacing_ttc: float = 0.0
+  lead_pacing_mode_age: float = 0.0
+  lead_pacing_brake_blend_context: bool = False
+  lead_pacing_regen_soft_context: bool = False
+  lead_pacing_regen_hard_context: bool = False
+  lead_pacing_stop_priority: bool = False
+  lead_pacing_driver_override: bool = False
+  lead_pacing_high_lat_demand: bool = False
+  lead_pacing_applied_to_a_target: bool = False
 
 
-# Brickpilot 0.5.7 keeps the 0.5.6 final-stop arbitration and adds a separate
-# native-SCC mimic path for lead pacing. Lead pacing is small, signed, and
-# rate-limited so it can reduce "distance 4" feel without becoming broad brake
-# authority or no-lead stop logic.
-BRICKPILOT_LONGITUDINAL_VERSION = "0.5.7"
-BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50700
-ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_057_native_lead_pacing"
-ULTIMATE_100K_CANDIDATE_HASH = 777057000
+# Brickpilot 0.5.8 keeps the 0.5.6/0.5.7 stop stack frozen and makes the
+# native-SCC mimic path live as small rolling-lead micro-deltas. It deliberately
+# does not increase final-stop authority or promote CAN candidates to brake
+# authority.
+BRICKPILOT_LONGITUDINAL_VERSION = "0.5.8"
+BRICKPILOT_LONGITUDINAL_VERSION_CODE = 50800
+ULTIMATE_100K_CANDIDATE_ID = "tucson_phev_058_native_pacing_microdelta"
+ULTIMATE_100K_CANDIDATE_HASH = 777058000
 PHEV_CAN_REGEN_LOGGER_MIN_VERSION = 33000
 PHEV_CAN_STATIONARY_LOGGER_MIN_VERSION = 40000
 PHEV_FA_B4_REGEN_U8_THRESHOLD = 160
+PHEV_FA_B4_HARD_REGEN_S8_THRESHOLD = -10
 PHEV_BRAKE_065_B9_U8_THRESHOLD = 128
+PHEV_BRAKE_065_B11_BLEND_MIN_U8 = 96
+PHEV_BRAKE_065_B12_BLEND_MIN_U8 = 4
 PHEV_BA_B14_AUTO_HOLD_VALUE = 1
 PHEV_STATIONARY_HOLD_MAX_SPEED = 0.5 * CV.MPH_TO_MS
 PHEV_FA_B4_LIGHT_REGEN_MIN_U8 = 16
@@ -240,19 +281,32 @@ STOP_ASSIST_BUFFER_RELAX_AMOUNT = 0.85
 STOP_ASSIST_MIN_STOP_DISTANCE = 1.0
 STOP_ASSIST_MAX_VALID_TTC = 10.0
 STOP_ASSIST_MIN_VALID_CLOSING_VREL = -0.25
-LEAD_PACING_MIN_SPEED = 3.0 * CV.MPH_TO_MS
-LEAD_PACING_MAX_SPEED = 45.0 * CV.MPH_TO_MS
-LEAD_PACING_TARGET_TIME_GAP = 1.05
+LEAD_PACING_POLICY_VERSION = 50800
+LEAD_PACING_MIN_SPEED = 2.0
+LEAD_PACING_MAX_SPEED = 28.0
+LEAD_PACING_TAPER_START_SPEED = 18.0
+LEAD_PACING_MIN_LEAD_SPEED = 2.0
+LEAD_PACING_ACCEL_MIN_LEAD_SPEED = 3.0
+LEAD_PACING_MIN_DISTANCE = 6.0
+LEAD_PACING_MAX_DISTANCE = 70.0
 LEAD_PACING_TARGET_MIN_GAP = 5.0
-LEAD_PACING_TARGET_MAX_GAP = 24.0
-LEAD_PACING_GAP_DEADBAND = 2.2
-LEAD_PACING_VREL_DEADBAND = 0.25
-LEAD_PACING_MAX_ACCEL_DELTA = 0.26
-LEAD_PACING_MAX_DECEL_DELTA = 0.30
-LEAD_PACING_GAP_GAIN = 0.030
-LEAD_PACING_VREL_GAIN = 0.145
-LEAD_PACING_JERK_LIMIT_UP = 0.75
-LEAD_PACING_JERK_LIMIT_DOWN = 1.00
+LEAD_PACING_TARGET_MAX_GAP = 60.0
+LEAD_PACING_POSITIVE_EXTRA_DEADBAND = 4.0
+LEAD_PACING_NEGATIVE_EXTRA_DEADBAND = 1.5
+LEAD_PACING_VREL_DEADBAND = 0.20
+LEAD_PACING_NEG_VREL_DEADBAND = 0.45
+LEAD_PACING_MIN_RAW_DELTA = 0.030
+LEAD_PACING_MAX_ACCEL_DELTA = 0.10
+LEAD_PACING_MAX_DECEL_DELTA = 0.16
+LEAD_PACING_GAP_GAIN = 0.012
+LEAD_PACING_POS_VREL_GAIN = 0.025
+LEAD_PACING_NEG_VREL_GAIN = 0.040
+LEAD_PACING_POS_MIN_TTC = 8.0
+LEAD_PACING_URGENT_TTC = 3.2
+LEAD_PACING_ENTRY_HOLD_SEC = 0.35
+LEAD_PACING_RAMP_UP = 0.15
+LEAD_PACING_RAMP_DOWN = 0.25
+LEAD_PACING_RELEASE_RAMP = 0.35
 BRICKPILOT_HOLD_SECONDS = 2.050
 BRICKPILOT_HOLD_DECAY = 0.550
 LEAD_PRESENT_DISTANCE_UNKNOWN = 0.01
@@ -304,22 +358,70 @@ def _phev_can_logger_has_phev_runtime(car_state_sp: Any | None, min_version: int
               (getattr(car_state_sp, "brickpilotPhevHybridFlagSet", False) or (present_mask & 0x1)))
 
 
-def _phev_regen_or_brake_active(car_state_sp: Any | None) -> bool:
-  if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_REGEN_LOGGER_MIN_VERSION):
-    return False
+def _u8_to_s8(value: int) -> int:
+  value = _safe_int(value) & 0xff
+  return value - 256 if value >= 128 else value
 
-  fa_b4_values = (
+
+def _phev_fa_b4_s8_values(car_state_sp: Any | None) -> tuple[int, int, int]:
+  if car_state_sp is None:
+    return (0, 0, 0)
+  fallback_u8 = (
     _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8", 0)),
     _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus0", 0)),
     _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus130", 0)),
   )
+  return (
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4S8", _u8_to_s8(fallback_u8[0]))),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4S8Bus0", _u8_to_s8(fallback_u8[1]))),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4S8Bus130", _u8_to_s8(fallback_u8[2]))),
+  )
+
+
+def _phev_brake_blend_context(car_state_sp: Any | None) -> bool:
+  if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_REGEN_LOGGER_MIN_VERSION):
+    return False
   brake_b3 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B3U8", 0))
   brake_b9 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B9U8", 0))
+  brake_b11 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B11U8", 0))
+  brake_b12 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B12U8", 0))
   brake_b14 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B14U8", 0))
-  return bool(max(fa_b4_values) >= PHEV_FA_B4_REGEN_U8_THRESHOLD or
-              brake_b9 >= PHEV_BRAKE_065_B9_U8_THRESHOLD or
+  return bool(brake_b9 >= PHEV_BRAKE_065_B9_U8_THRESHOLD or
               brake_b3 >= PHEV_BRAKE_065_B3_FRICTION_MIN_U8 or
-              brake_b14 >= PHEV_BRAKE_065_B14_FRICTION_MIN_U8)
+              brake_b14 >= PHEV_BRAKE_065_B14_FRICTION_MIN_U8 or
+              (brake_b11 >= PHEV_BRAKE_065_B11_BLEND_MIN_U8 and
+               brake_b12 >= PHEV_BRAKE_065_B12_BLEND_MIN_U8))
+
+
+def _phev_regen_soft_context(car_state_sp: Any | None) -> bool:
+  if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_REGEN_LOGGER_MIN_VERSION):
+    return False
+  fa_b4_u8_values = (
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8", 0)),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus0", 0)),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus130", 0)),
+  )
+  fa_b7_values = (
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB7U8", 0)),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB7U8Bus0", 0)),
+    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB7U8Bus130", 0)),
+  )
+  fa_b4_s8_values = _phev_fa_b4_s8_values(car_state_sp)
+  return bool(max(fa_b7_values) >= PHEV_FA_B7_LIGHT_REGEN_MIN_U8 or
+              any(0 < v < PHEV_FA_B4_REGEN_U8_THRESHOLD for v in fa_b4_u8_values) or
+              min(fa_b4_s8_values) < 0)
+
+
+def _phev_regen_hard_context(car_state_sp: Any | None) -> bool:
+  if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_REGEN_LOGGER_MIN_VERSION):
+    return False
+  return bool(min(_phev_fa_b4_s8_values(car_state_sp)) <= PHEV_FA_B4_HARD_REGEN_S8_THRESHOLD)
+
+
+def _phev_regen_or_brake_active(car_state_sp: Any | None) -> bool:
+  if not _phev_can_logger_has_phev_runtime(car_state_sp, PHEV_CAN_REGEN_LOGGER_MIN_VERSION):
+    return False
+  return bool(_phev_brake_blend_context(car_state_sp) or _phev_regen_hard_context(car_state_sp))
 
 
 def _phev_stationary_or_auto_hold_active(car_state_sp: Any | None, v_ego: float = 0.0,
@@ -336,28 +438,11 @@ def _phev_brake_state(car_state_sp: Any | None, v_ego: float, standstill: bool =
   if _phev_stationary_or_auto_hold_active(car_state_sp, v_ego, standstill):
     return PHEV_BRAKE_STATE_STATIONARY_HOLD
 
-  fa_b4_values = (
-    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8", 0)),
-    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus0", 0)),
-    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB4U8Bus130", 0)),
-  )
-  fa_b7_values = (
-    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB7U8", 0)),
-    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB7U8Bus0", 0)),
-    _safe_int(getattr(car_state_sp, "brickpilotPhevFaB7U8Bus130", 0)),
-  )
-  brake_b3 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B3U8", 0))
-  brake_b9 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B9U8", 0))
-  brake_b10 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B10U8", 0))
-  brake_b14 = _safe_int(getattr(car_state_sp, "brickpilotBrake065B14U8", 0))
-
-  if (brake_b9 >= PHEV_BRAKE_065_B9_U8_THRESHOLD or
-      brake_b3 >= PHEV_BRAKE_065_B3_FRICTION_MIN_U8 or
-      brake_b14 >= PHEV_BRAKE_065_B14_FRICTION_MIN_U8):
+  if _phev_brake_blend_context(car_state_sp):
     return PHEV_BRAKE_STATE_FRICTION_BRAKE_CANDIDATE
-  if max(fa_b4_values) >= PHEV_FA_B4_REGEN_U8_THRESHOLD or brake_b10 >= PHEV_BRAKE_065_B9_U8_THRESHOLD:
+  if _phev_regen_hard_context(car_state_sp):
     return PHEV_BRAKE_STATE_REGEN_BRAKE_BLEND
-  if max(fa_b4_values) >= PHEV_FA_B4_LIGHT_REGEN_MIN_U8 or max(fa_b7_values) >= PHEV_FA_B7_LIGHT_REGEN_MIN_U8:
+  if _phev_regen_soft_context(car_state_sp):
     return PHEV_BRAKE_STATE_REGEN_LIGHT_COAST
   return PHEV_BRAKE_STATE_NONE
 
@@ -421,16 +506,28 @@ def _stop_distance_buffer(v_ego: float, lead_v_rel: float = 0.0, ttc: float = 0.
   return base_buffer
 
 
-def _lead_pacing_target_gap(v_ego: float, lead_abs_speed: float) -> float:
+def _lead_pacing_profile(v_ego: float, lead_abs_speed: float) -> tuple[float, float]:
   reference_speed = max(0.0, min(max(v_ego, lead_abs_speed), LEAD_PACING_MAX_SPEED))
-  return float(np.clip(LEAD_PACING_TARGET_MIN_GAP + LEAD_PACING_TARGET_TIME_GAP * reference_speed,
-                       LEAD_PACING_TARGET_MIN_GAP,
-                       LEAD_PACING_TARGET_MAX_GAP))
+  base_gap = float(np.interp(reference_speed, [0.0, 5.0, 12.0, 20.0, 28.0],
+                             [4.0, 5.0, 6.0, 8.0, 10.0]))
+  time_gap = float(np.interp(reference_speed, [0.0, 5.0, 12.0, 20.0, 28.0],
+                             [0.90, 1.05, 1.15, 1.35, 1.55]))
+  deadband = float(np.interp(reference_speed, [0.0, 10.0, 25.0],
+                             [1.5, 2.2, 3.5]))
+  target_gap = float(np.clip(base_gap + time_gap * reference_speed,
+                             LEAD_PACING_TARGET_MIN_GAP,
+                             LEAD_PACING_TARGET_MAX_GAP))
+  return target_gap, deadband
 
 
 def _rate_limit_signed_delta(target: float, previous: float, dt: float) -> tuple[float, bool]:
-  step_up = LEAD_PACING_JERK_LIMIT_UP * max(0.0, dt)
-  step_down = LEAD_PACING_JERK_LIMIT_DOWN * max(0.0, dt)
+  dt = max(0.0, dt)
+  if abs(target) < 1e-6:
+    step_up = LEAD_PACING_RELEASE_RAMP * dt
+    step_down = LEAD_PACING_RELEASE_RAMP * dt
+  else:
+    step_up = LEAD_PACING_RAMP_UP * dt
+    step_down = LEAD_PACING_RAMP_DOWN * dt
   if target > previous + step_up:
     return previous + step_up, True
   if target < previous - step_down:
@@ -886,38 +983,107 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     stop_assist_delta = min(0.0, stop_assist_target - a_target)
     stop_should_activate = bool(stop_assist_delta < -0.01)
 
-  lead_pacing_target_gap = _lead_pacing_target_gap(v_ego, lead_abs_speed) if radar_has_lead and lead_distance > 0.0 else 0.0
+  lead_pacing_target_gap, lead_pacing_deadband = _lead_pacing_profile(v_ego, lead_abs_speed) if radar_has_lead and lead_distance > 0.0 else (0.0, 0.0)
   lead_pacing_gap_error = lead_distance - lead_pacing_target_gap if lead_pacing_target_gap > 0.0 else 0.0
-  lead_pacing_shadow_candidate = bool(enabled_for_vehicle and getattr(CC, "longActive", False) and valid and
-                                      longitudinal_plan_sp_valid and radar_has_lead and lead_distance > 0.0 and
-                                      not cs_standstill and not cruise_standstill and
-                                      v_ego >= LEAD_PACING_MIN_SPEED and v_ego <= LEAD_PACING_MAX_SPEED and
-                                      lead_abs_speed > STOP_ASSIST_LEAD_NEAR_STOPPED_SPEED and
-                                      not getattr(long_plan, "fcw", False) and not model_hard_brake and
-                                      not radar_model_mismatch and not dec_or_scc_active and
-                                      not high_predicted_lateral and not phev_regen_or_brake and
-                                      not phev_stationary_or_auto_hold and
-                                      not getattr(CS, "gasPressed", False) and not getattr(CS, "brakePressed", False) and
-                                      not getattr(CS, "steeringPressed", False) and
-                                      lateral_demand <= STOP_ASSIST_MAX_LATERAL_ACCEL)
+  lead_pacing_brake_blend_context = _phev_brake_blend_context(car_state_sp)
+  lead_pacing_regen_soft_context = _phev_regen_soft_context(car_state_sp)
+  lead_pacing_regen_hard_context = _phev_regen_hard_context(car_state_sp)
+  lead_pacing_driver_override = bool(getattr(CS, "gasPressed", False) or
+                                     getattr(CS, "brakePressed", False) or
+                                     getattr(CS, "steeringPressed", False))
+  lead_pacing_high_lat_demand = bool(lateral_demand > STOP_ASSIST_MAX_LATERAL_ACCEL or high_predicted_lateral)
+  lead_pacing_ttc = ttc if radar_has_lead else 0.0
+  lead_pacing_stop_priority = bool(stop_should_activate or final_stop_commit or stop_live_urgent or
+                                   (lead_pacing_ttc > 0.0 and lead_pacing_ttc <= LEAD_PACING_URGENT_TTC))
+  lead_pacing_eligible = bool(enabled_for_vehicle and getattr(CC, "longActive", False) and valid and
+                              longitudinal_plan_sp_valid and radar_has_lead and
+                              lead_distance >= LEAD_PACING_MIN_DISTANCE and lead_distance <= LEAD_PACING_MAX_DISTANCE and
+                              not cs_standstill and not cruise_standstill and
+                              v_ego >= LEAD_PACING_MIN_SPEED and v_ego <= LEAD_PACING_MAX_SPEED and
+                              lead_abs_speed >= LEAD_PACING_MIN_LEAD_SPEED and
+                              not getattr(long_plan, "fcw", False) and not model_hard_brake and
+                              not radar_model_mismatch and not dec_or_scc_active and
+                              not phev_stationary_or_auto_hold)
+  lead_pacing_gate_mask = 0
+  if lead_pacing_eligible:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_ELIGIBLE
+  if not lead_pacing_driver_override:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_DRIVER_OK
+  if not lead_pacing_high_lat_demand:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_LAT_OK
+  if not lead_pacing_stop_priority:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_STOP_OK
+  if not lead_pacing_brake_blend_context:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_BRAKE_BLEND_OK
+  if lead_pacing_ttc == 0.0 or lead_pacing_ttc > LEAD_PACING_URGENT_TTC:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_TTC_OK
+
+  lead_pacing_shadow_candidate = bool(lead_pacing_eligible and
+                                      not lead_pacing_driver_override and
+                                      not lead_pacing_high_lat_demand and
+                                      not lead_pacing_stop_priority and
+                                      not lead_pacing_brake_blend_context)
   lead_pacing_mode = LEAD_PACING_MODE_NONE
   raw_lead_pacing_delta = 0.0
+  lead_pacing_block_reason = LEAD_PACING_BLOCK_NONE
+  if not lead_pacing_eligible:
+    lead_pacing_block_reason = LEAD_PACING_BLOCK_NOT_ELIGIBLE
+  elif lead_pacing_driver_override:
+    lead_pacing_block_reason = LEAD_PACING_BLOCK_DRIVER_OVERRIDE
+  elif lead_pacing_high_lat_demand:
+    lead_pacing_block_reason = LEAD_PACING_BLOCK_HIGH_LAT
+  elif lead_pacing_stop_priority:
+    lead_pacing_block_reason = LEAD_PACING_BLOCK_STOP_PRIORITY
+  elif lead_pacing_brake_blend_context:
+    lead_pacing_block_reason = LEAD_PACING_BLOCK_BRAKE_BLEND
   if lead_pacing_shadow_candidate:
     lead_pacing_mode = LEAD_PACING_MODE_COAST
-    too_far_gap = max(0.0, lead_pacing_gap_error - LEAD_PACING_GAP_DEADBAND)
-    too_close_gap = max(0.0, -lead_pacing_gap_error - LEAD_PACING_GAP_DEADBAND)
-    lead_pulling_away = max(0.0, lead_v_rel - LEAD_PACING_VREL_DEADBAND)
-    lead_closing_mild = max(0.0, -lead_v_rel - LEAD_PACING_VREL_DEADBAND)
-    if too_far_gap > 0.0 and lead_v_rel >= -LEAD_PACING_VREL_DEADBAND and a_target >= -0.05 and not stop_live_urgent:
+    too_far_gap = max(0.0, lead_pacing_gap_error - lead_pacing_deadband)
+    too_close_gap = max(0.0, -lead_pacing_gap_error - lead_pacing_deadband)
+    too_far_gap_action = max(0.0, too_far_gap - LEAD_PACING_POSITIVE_EXTRA_DEADBAND)
+    too_close_gap_action = max(0.0, too_close_gap - LEAD_PACING_NEGATIVE_EXTRA_DEADBAND)
+    lead_pulling_away = max(0.0, lead_v_rel)
+    lead_closing_mild = max(0.0, -lead_v_rel - LEAD_PACING_NEG_VREL_DEADBAND)
+    v_cruise_kph = _safe_float(getattr(CS, "vCruise", 0.0))
+    v_cruise_ms = v_cruise_kph * CV.KPH_TO_MS if 0.0 < v_cruise_kph < 200.0 else 0.0
+    ttc_safe_for_positive = bool(lead_pacing_ttc == 0.0 or lead_pacing_ttc > LEAD_PACING_POS_MIN_TTC)
+    positive_allowed = bool(too_far_gap_action > 0.0 and
+                            lead_v_rel > -LEAD_PACING_VREL_DEADBAND and
+                            ttc_safe_for_positive and
+                            lead_abs_speed > LEAD_PACING_ACCEL_MIN_LEAD_SPEED and
+                            (v_cruise_ms <= 0.0 or v_ego < v_cruise_ms - 0.5) and
+                            not lead_pacing_regen_hard_context)
+    coast_or_negative_allowed = bool(lead_abs_speed > LEAD_PACING_MIN_LEAD_SPEED and
+                                     lead_distance > 7.0 and
+                                     (lead_pacing_ttc == 0.0 or lead_pacing_ttc > LEAD_PACING_URGENT_TTC))
+    if positive_allowed:
       raw_lead_pacing_delta = min(LEAD_PACING_MAX_ACCEL_DELTA,
-                                  LEAD_PACING_GAP_GAIN * too_far_gap +
-                                  LEAD_PACING_VREL_GAIN * lead_pulling_away)
+                                  LEAD_PACING_GAP_GAIN * too_far_gap_action +
+                                  LEAD_PACING_POS_VREL_GAIN * lead_pulling_away)
+      if lead_pacing_regen_soft_context:
+        if a_ego < -0.12:
+          raw_lead_pacing_delta = 0.0
+          lead_pacing_block_reason = LEAD_PACING_BLOCK_SOFT_REGEN_DECEL
+        else:
+          raw_lead_pacing_delta *= 0.5
       lead_pacing_mode = LEAD_PACING_MODE_ACCEL if raw_lead_pacing_delta > 0.01 else LEAD_PACING_MODE_SHADOW
-    elif (too_close_gap > 0.0 or lead_closing_mild > 0.0) and not stop_live_urgent:
+    elif coast_or_negative_allowed and a_target > 0.0 and (lead_v_rel < -0.55 or
+                                                           lead_pacing_gap_error < -(lead_pacing_deadband + LEAD_PACING_NEGATIVE_EXTRA_DEADBAND)):
+      raw_lead_pacing_delta = -min(max(0.0, a_target), 0.08)
+      lead_pacing_mode = LEAD_PACING_MODE_COAST if raw_lead_pacing_delta < -0.01 else LEAD_PACING_MODE_SHADOW
+    elif coast_or_negative_allowed and (too_close_gap_action > 0.0 or lead_closing_mild > 0.0):
       raw_lead_pacing_delta = -min(LEAD_PACING_MAX_DECEL_DELTA,
-                                   LEAD_PACING_GAP_GAIN * too_close_gap +
-                                   LEAD_PACING_VREL_GAIN * lead_closing_mild)
+                                   LEAD_PACING_GAP_GAIN * too_close_gap_action +
+                                   LEAD_PACING_NEG_VREL_GAIN * lead_closing_mild)
       lead_pacing_mode = LEAD_PACING_MODE_DECEL if raw_lead_pacing_delta < -0.01 else LEAD_PACING_MODE_SHADOW
+    if v_ego > LEAD_PACING_TAPER_START_SPEED and raw_lead_pacing_delta != 0.0:
+      taper = float(np.clip((LEAD_PACING_MAX_SPEED - v_ego) /
+                            max(0.1, LEAD_PACING_MAX_SPEED - LEAD_PACING_TAPER_START_SPEED), 0.0, 1.0))
+      raw_lead_pacing_delta *= taper
+    if abs(raw_lead_pacing_delta) < LEAD_PACING_MIN_RAW_DELTA:
+      raw_lead_pacing_delta = 0.0
+    if lead_pacing_block_reason == LEAD_PACING_BLOCK_NONE and abs(raw_lead_pacing_delta) <= 0.001:
+      lead_pacing_block_reason = LEAD_PACING_BLOCK_DEADBAND
 
   lead_pacing_allowed_suppressors = (BrickpilotLongitudinalSuppressor.LEAD_PRESENT_OR_LIMITING |
                                      BrickpilotLongitudinalSuppressor.STOP_CREEP_BAND |
@@ -925,11 +1091,39 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                      BrickpilotLongitudinalSuppressor.NO_CATCHUP_DEMAND |
                                      BrickpilotLongitudinalSuppressor.ACCEL_LAG_TOO_SMALL)
   lead_pacing_hard_suppressors = suppressors & ~lead_pacing_allowed_suppressors
-  prev_lead_pacing_delta = _safe_float(getattr(prev_state, "lead_pacing_assist_delta", 0.0)) if prev_state is not None else 0.0
+  if lead_pacing_hard_suppressors != BrickpilotLongitudinalSuppressor.NONE:
+    raw_lead_pacing_delta = 0.0
+    if lead_pacing_block_reason == LEAD_PACING_BLOCK_NONE:
+      lead_pacing_block_reason = LEAD_PACING_BLOCK_HARD_SUPPRESSOR
+  prev_lead_pacing_delta = _safe_float(getattr(prev_state, "lead_pacing_live_delta",
+                                               getattr(prev_state, "lead_pacing_assist_delta", 0.0))) if prev_state is not None else 0.0
+  prev_lead_pacing_mode = _safe_int(getattr(prev_state, "lead_pacing_mode", LEAD_PACING_MODE_NONE)) if prev_state is not None else LEAD_PACING_MODE_NONE
+  prev_lead_pacing_mode_age = _safe_float(getattr(prev_state, "lead_pacing_mode_age", 0.0)) if prev_state is not None else 0.0
+  if lead_pacing_mode != LEAD_PACING_MODE_NONE and lead_pacing_mode == prev_lead_pacing_mode:
+    lead_pacing_mode_age = prev_lead_pacing_mode_age + hold_dt
+  elif lead_pacing_mode != LEAD_PACING_MODE_NONE:
+    lead_pacing_mode_age = hold_dt
+  else:
+    lead_pacing_mode_age = 0.0
+  entry_hold_ready = bool(abs(prev_lead_pacing_delta) > 0.01 or
+                          lead_pacing_mode_age >= LEAD_PACING_ENTRY_HOLD_SEC)
+  if not entry_hold_ready and abs(raw_lead_pacing_delta) > 0.001:
+    raw_lead_pacing_delta = 0.0
+    if lead_pacing_block_reason == LEAD_PACING_BLOCK_NONE:
+      lead_pacing_block_reason = LEAD_PACING_BLOCK_ENTRY_HOLD
+  if abs(raw_lead_pacing_delta) > 0.001:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_DELTA_NONZERO
+  if entry_hold_ready:
+    lead_pacing_gate_mask |= LEAD_PACING_GATE_ENTRY_HOLD_OK
   lead_pacing_delta, lead_pacing_jerk_limited = _rate_limit_signed_delta(raw_lead_pacing_delta, prev_lead_pacing_delta, hold_dt)
-  lead_pacing_live = bool(lead_pacing_shadow_candidate and not stop_should_activate and
+  lead_pacing_live = bool(lead_pacing_shadow_candidate and not stop_should_activate and entry_hold_ready and
                           lead_pacing_hard_suppressors == BrickpilotLongitudinalSuppressor.NONE and
                           abs(lead_pacing_delta) > 0.01)
+  if not lead_pacing_live and lead_pacing_block_reason == LEAD_PACING_BLOCK_NONE and abs(raw_lead_pacing_delta) > 0.001:
+    lead_pacing_block_reason = LEAD_PACING_BLOCK_RATE_LIMIT_ZERO
+  lead_pacing_live_delta = lead_pacing_delta if lead_pacing_live else 0.0
+  if lead_pacing_live:
+    lead_pacing_block_reason = LEAD_PACING_BLOCK_NONE
 
   stop_arbitration_fields = {
     "stop_mode": stop_mode,
@@ -942,8 +1136,24 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
     "lead_pacing_target_gap": lead_pacing_target_gap,
     "lead_pacing_gap_error": lead_pacing_gap_error,
     "lead_pacing_v_rel": lead_v_rel if radar_has_lead else 0.0,
-    "lead_pacing_assist_delta": lead_pacing_delta if lead_pacing_live else 0.0,
+    "lead_pacing_assist_delta": lead_pacing_live_delta,
     "lead_pacing_jerk_limited": bool(lead_pacing_live and lead_pacing_jerk_limited),
+    "lead_pacing_policy_version": LEAD_PACING_POLICY_VERSION,
+    "lead_pacing_raw_delta": raw_lead_pacing_delta,
+    "lead_pacing_live_delta": lead_pacing_live_delta,
+    "lead_pacing_delta_after_rate_limit": lead_pacing_delta,
+    "lead_pacing_gate_mask": lead_pacing_gate_mask,
+    "lead_pacing_block_reason": lead_pacing_block_reason,
+    "lead_pacing_v_lead": lead_abs_speed if radar_has_lead else 0.0,
+    "lead_pacing_ttc": lead_pacing_ttc,
+    "lead_pacing_mode_age": lead_pacing_mode_age,
+    "lead_pacing_brake_blend_context": lead_pacing_brake_blend_context,
+    "lead_pacing_regen_soft_context": lead_pacing_regen_soft_context,
+    "lead_pacing_regen_hard_context": lead_pacing_regen_hard_context,
+    "lead_pacing_stop_priority": lead_pacing_stop_priority,
+    "lead_pacing_driver_override": lead_pacing_driver_override,
+    "lead_pacing_high_lat_demand": lead_pacing_high_lat_demand,
+    "lead_pacing_applied_to_a_target": False,
   }
 
   clean_shadow_context = bool(enabled_for_vehicle and valid and getattr(CC, "longActive", False) and
@@ -1010,13 +1220,15 @@ def brickpilot_tucson_longitudinal_assist(CP: Any, CC: Any, CS: Any, long_plan: 
                                              **stop_arbitration_fields)
 
   if lead_pacing_live:
-    lead_pacing_target = a_target + lead_pacing_delta
+    lead_pacing_target = a_target + lead_pacing_live_delta
     lead_pacing_target = max(lead_pacing_target, _safe_float(accel_limits[0], -STOP_ASSIST_MAX_TARGET_DECEL))
     lead_pacing_target = min(lead_pacing_target,
                              _safe_float(accel_limits[1], CarControllerParams.ACCEL_MAX),
                              MAX_ASSISTED_A_TARGET)
     applied_lead_pacing_delta = lead_pacing_target - a_target
     stop_arbitration_fields["lead_pacing_assist_delta"] = applied_lead_pacing_delta
+    stop_arbitration_fields["lead_pacing_live_delta"] = applied_lead_pacing_delta
+    stop_arbitration_fields["lead_pacing_applied_to_a_target"] = abs(applied_lead_pacing_delta) > 0.001
     return BrickpilotLongitudinalAssistState(enabled_for_vehicle=enabled_for_vehicle,
                                              active=True, shadow_candidate=True,
                                              planner_floor_shadow_candidate=planner_floor_shadow_candidate,

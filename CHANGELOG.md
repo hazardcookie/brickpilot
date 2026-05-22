@@ -5,6 +5,48 @@ Brickpilot's visible version, live driving behavior, telemetry schema, or
 vehicle-specific support changes. The inherited upstream sunnypilot/openpilot
 changelog is retained below for baseline context.
 
+## 0.5.8 - 2026-05-22
+
+Staging native rolling-lead micro-pacing build based on the 0.5.7 WMI route,
+0.5.6 Alpha Long ON/OFF references, and the 0.5.8 lead-pacing sweep. This
+release does not change lateral control, does not raise stop authority, and
+does not broaden final-stop commit.
+
+### Changed
+
+- Bumped Brickpilot brand/version metadata and longitudinal candidate code to
+  `50800`.
+- Reworked the native lead-pacing path from a mostly diagnostic classifier into
+  a live, very small signed micro-delta policy for valid rolling-lead contexts.
+  The live cap is `+0.10 m/s^2` for smooth catch-up and `-0.16 m/s^2` for
+  rolling/coast-down correction.
+- Replaced the 0.5.7 fixed gap target with a speed-shaped Tucson PHEV target
+  gap/deadband profile. The policy now acts only for valid rolling leads between
+  6 and 70 meters, with a high-speed taper above 18 m/s and zero above 28 m/s.
+- Kept stop stack priority above pacing. Active stop assist, urgent TTC,
+  final-stop commit, driver gas/brake/steering override, high lateral demand,
+  stationary/Auto Hold context, DEC/SCC turn context, radar/model mismatch, and
+  clear `0x065` brake-blend context block live pacing.
+- Demoted raw high unsigned `0x0FA.b4` from "brake magnitude" semantics. The
+  `0x065` cluster is the live brake-blend veto; `0x0FA.b4/b7` remain
+  PHEV energy/regen context and can soften or block positive catch-up only when
+  paired with hard regen/deceleration evidence.
+- Added detailed pacing telemetry: policy version, raw delta, live/applied
+  delta, post-rate-limit delta, gate mask, block reason, lead absolute speed,
+  TTC, mode age, brake-blend/regen contexts, stop-priority context,
+  driver/high-lateral veto state, and whether the delta was applied to
+  `aTarget`.
+
+### Validation
+
+- Added regression coverage for 0.5.8 version markers, far rolling-lead
+  nonzero micro-accel, close rolling-lead micro-decel/coast, stopped/urgent lead
+  stop priority, driver/high-lateral/brake-blend vetoes, soft regen handling,
+  rate limiting, and block-reason telemetry.
+- Added a research preflight sweep script,
+  `scripts/drive_tests/sweep_lead_pacing_058.py`, to compare the candidate
+  against Alpha Long ON/OFF and 0.5.7 lead-pacing routes before road testing.
+
 ## 0.5.7 - 2026-05-22
 
 Staging native lead-pacing mimic build based on the 0.5.6 Alpha Long ON/OFF

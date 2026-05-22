@@ -955,6 +955,22 @@ struct ControlsState @0x97ff69c53601abf1 {
     leadPacingVRel @84 :Float32;       # radar lead relative speed used by pacing path, m/s
     leadPacingAssistDelta @85 :Float32;# signed change from planner aTarget; small +/- pacing nudge
     leadPacingJerkLimited @86 :Bool;
+    leadPacingPolicyVersion @87 :UInt32;
+    leadPacingRawDelta @88 :Float32;
+    leadPacingLiveDelta @89 :Float32;  # applied pacing delta after gates and accel-limit clipping
+    leadPacingDeltaAfterRateLimit @90 :Float32;
+    leadPacingGateMask @91 :UInt32;
+    leadPacingBlockReason @92 :UInt8;  # 0 none, 1 ineligible, 2 driver, 3 lat, 4 stop, 5 brake blend, 6 TTC, 7 regen, 8 deadband, 9 hold, 10 rate, 11 suppressor
+    leadPacingVLead @93 :Float32;
+    leadPacingTtc @94 :Float32;
+    leadPacingModeAge @95 :Float32;
+    leadPacingBrakeBlendContext @96 :Bool;
+    leadPacingRegenSoftContext @97 :Bool;
+    leadPacingRegenHardContext @98 :Bool;
+    leadPacingStopPriority @99 :Bool;
+    leadPacingDriverOverride @100 :Bool;
+    leadPacingHighLatDemand @101 :Bool;
+    leadPacingAppliedToATarget @102 :Bool;
   }
 
   deprecated :group {

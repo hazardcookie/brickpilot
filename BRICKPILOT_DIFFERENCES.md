@@ -231,6 +231,19 @@ wins. The new `brickpilotShadow` fields `leadPacingMode`,
 `leadPacingAssistDelta`, and `leadPacingJerkLimited` make this behavior
 auditable in the research UI and event-card reports.
 
+In 0.5.8, Brickpilot keeps steering and stop authority frozen, then turns the
+0.5.7 pacing classifier into a live native-style micro-pacing policy. The new
+policy only runs for valid rolling radar leads, uses a speed-shaped target gap
+and deadband, tapers out at higher speed, and applies very small signed
+post-planner deltas through the normal LongControl path: up to `+0.10 m/s^2`
+for smooth catch-up and `-0.16 m/s^2` for rolling/coast-down correction. Stop
+priority, driver override, high lateral demand, clear `0x065` brake-blend
+context, urgent TTC, and stationary/Auto Hold contexts block live pacing. Raw
+high unsigned `0x0FA.b4` is no longer treated as brake magnitude; `0x0FA.b4/b7`
+remain energy/regen context only. Additional telemetry records raw/live/rate
+limited deltas, gate masks, block reasons, mode age, lead absolute speed, TTC,
+regen/brake contexts, and whether the pacing delta actually reached `aTarget`.
+
 ### Low-Speed Steering Texture Smoothing
 
 Brickpilot adds Tucson CAN-FD low-speed output-torque smoothing in the
